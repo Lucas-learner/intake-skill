@@ -36,6 +36,7 @@ def test_mock_asr_writes_exact_csv_columns(tmp_path: Path) -> None:
 
     summary = asr.run_asr(tmp_path, day, engine="mock")
     output = Path(str(summary["output_path"]))
+    assert summary["output_dir"] == str(day_dir)
 
     with output.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -52,6 +53,7 @@ def test_mock_asr_accepts_installer_controlled_text(tmp_path: Path) -> None:
     _ = (day_dir / "20260512_0930_watch.m4a").write_bytes(b"fake-audio")
 
     summary = asr.run_asr(tmp_path, day, engine="mock", mock_text="Installer validation transcript.")
+    assert summary["output_dir"] == str(day_dir)
 
     with Path(str(summary["output_path"])).open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))

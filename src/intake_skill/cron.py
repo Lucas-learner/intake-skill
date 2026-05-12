@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-CRON_MARKER = "# intake_skill midnight run"
+CRON_MARKER = "# intake_skill nightly run"
 
 
 def cron_line(repo_root: Path) -> str:
@@ -59,6 +59,8 @@ def append_cron(repo_root: Path, dry_run: bool = False, current: str | None = No
         "already_present": already_present,
         "cron_line": line,
         "backup_path": str(path),
+        "schedule_label": "Every night at midnight",
+        "user_note": "This sets up Intake Skill to run automatically each night when the Mac is awake.",
     }
     if dry_run:
         summary["new_crontab"] = new_crontab

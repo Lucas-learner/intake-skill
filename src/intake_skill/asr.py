@@ -39,7 +39,7 @@ def run_mock_asr(data_dir: Path, day: str, mock_text: str | None = None) -> dict
     ]
     output = transcript_path(data_dir, day)
     write_transcript(rows, output)
-    return {"command": "asr", "engine": "mock", "day": day, "audio_count": len(files), "output_path": str(output)}
+    return {"command": "asr", "engine": "mock", "day": day, "audio_count": len(files), "output_path": str(output), "output_dir": str(output.parent)}
 
 
 def run_mlx_asr(data_dir: Path, day: str) -> dict[str, object]:
@@ -55,7 +55,15 @@ def run_mlx_asr(data_dir: Path, day: str) -> dict[str, object]:
         rows.append({"speaker": "", "content": str(result.get("text", "")).strip()})
     output = transcript_path(data_dir, day)
     write_transcript(rows, output)
-    return {"command": "asr", "engine": "mlx", "day": day, "audio_count": len(rows), "output_path": str(output)}
+    return {
+        "command": "asr",
+        "engine": "mlx",
+        "day": day,
+        "audio_count": len(rows),
+        "output_path": str(output),
+        "output_dir": str(output.parent),
+        "user_note": "The first real transcription can take a little while because the local speech model may need to download or warm up.",
+    }
 
 
 def run_asr(data_dir: Path, day: str, engine: str = "mock", mock_text: str | None = None) -> dict[str, object]:

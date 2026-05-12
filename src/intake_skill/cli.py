@@ -62,7 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_day.add_argument("--mock-text", default=None, help="Use this exact content for mock ASR during run-day")
     run_day.add_argument("--dry-run-sync", action="store_true", help="Plan sync only; ASR and postprocess still run against existing data")
 
-    cron = subparsers.add_parser("install-cron", help="Append a midnight cron entry after backing up the current crontab")
+    cron = subparsers.add_parser("install-cron", help="Set up the optional nightly run")
     add_common_paths(cron)
     cron.add_argument("--dry-run", action="store_true")
 

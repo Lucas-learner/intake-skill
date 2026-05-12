@@ -13,7 +13,9 @@ Use this skill when a user asks an AI agent to install or operate the Intake Ski
 Install this repo for me: https://github.com/grapeot/intake-skill
 ```
 
-The job is complete only after the repo is cloned as a project-local skill, the local CLI is installed, tests pass, real local ASR has been installed and verified, a sample audio file has gone through sync, MLX ASR, and Codex postprocessing end to end, and the operator has made an explicit choice about optional nightly cron.
+The job is complete only after the repo is cloned as a project-local skill, the local CLI is installed, tests pass, real local ASR has been installed and verified, a sample audio file has gone through sync, MLX ASR, and Codex postprocessing end to end, the operator has been shown where the output files are, and the operator has made an explicit choice about the optional nightly automatic run.
+
+When talking to the operator, keep the cognitive burden low. Prefer phrases like "nightly automatic run", "runs every night", or "daily background run" instead of leading with terms such as "cron", "cron job", or "crontab". Use the technical terms only when showing exact commands, errors, or backup files. Explain setup as: "I can set this up to run once every night while your Mac is awake."
 
 ## Scope and Runtime Defaults
 
@@ -74,6 +76,8 @@ python -c "import mlx_whisper; print('mlx-whisper import ok')"
 
 Then force the model download and execution path by running ASR on a non-private sample through `--engine mlx`. The current CLI calls `mlx_whisper.transcribe()` with its configured default model. A successful run should download or initialize the default MLX Whisper model and produce a non-empty `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns.
 
+Before running this step, tell the user in plain language that the first transcription may take a while because the speech model may need to download or warm up locally. Do not make that pause sound like a failure.
+
 If the Mac, Python version, package resolver, or network cannot install `mlx-whisper`, or if the model cannot download or execute, mark setup blocked. Include the exact command, exit code, and error text. Do not declare setup complete based on mock engines.
 
 ## Sample Audio End-to-End Validation
@@ -105,7 +109,13 @@ Verify these artifacts exist and contain expected content:
 - `$VALIDATION_DATA/YYYYMMDD/daily_YYYYMMDD.html`
 - `$VALIDATION_DATA/YYYYMMDD/meetings/*.md`
 
-Open the CSV and confirm the header is exactly `speaker,content` and at least one `content` cell is non-empty. Open the Markdown and HTML reports and confirm they reflect the sample transcript. If the user asks for a mock-only smoke test as a separate development check, run `run-day` with `--asr-engine mock --postprocess-engine mock`, but keep real MLX ASR and Codex postprocessing as the setup gate.
+Open the CSV and confirm the header is exactly `speaker,content` and at least one `content` cell is non-empty. Open the Markdown and HTML reports and confirm they reflect the sample transcript. After validation succeeds, tell the user the exact output directory and, on macOS, open it in Finder when possible:
+
+```bash
+open "$VALIDATION_DATA/$VALIDATION_DAY"
+```
+
+If opening Finder fails, continue and give the user the path. If the user asks for a mock-only smoke test as a separate development check, run `run-day` with `--asr-engine mock --postprocess-engine mock`, but keep real MLX ASR and Codex postprocessing as the setup gate.
 
 ## Validate Codex During Setup
 
@@ -143,17 +153,17 @@ python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-en
 
 Use the real Voice Memos path only after the synthetic-sample MLX and Codex validation succeeds.
 
-## Cron Installation
+## Nightly Automatic Run
 
-Cron is optional. Install it only after the user confirms this Mac should run Intake Skill nightly.
+The nightly automatic run is optional. Install it only after the user confirms this Mac should run Intake Skill every night. In user-facing conversation, describe this as "a small job that runs once each night while your Mac is awake"; do not lead with "cron".
 
-First preview the line and backup path:
+First preview what would be installed and where the backup would go:
 
 ```bash
 python -m intake_skill install-cron --dry-run
 ```
 
-Before installing for real, back up the current crontab yourself as an extra operator-visible checkpoint:
+Before installing for real, back up the current schedule file yourself as an extra operator-visible checkpoint:
 
 ```bash
 mkdir -p logs
@@ -166,9 +176,9 @@ Then install only after confirmation:
 python -m intake_skill install-cron
 ```
 
-The CLI also writes a timestamped backup under `logs/crontab_backup_*.txt` and appends one marked line if absent. Append only; never replace the user's crontab. Do not run cron installation during tests or documentation-only changes.
+The CLI also writes a timestamped backup under `logs/crontab_backup_*.txt` and appends one marked line if absent. Append only; never replace the user's existing schedule. Do not install the nightly run during tests or documentation-only changes.
 
-Remind the operator that cron works only when the Mac is awake at the scheduled time and Voice Memos is running or syncing often enough for new recordings to appear in the source directory. Also tell the operator that Voice Memos iCloud sync should be enabled if they rely on it, the Mac should be plugged in, and macOS may show a permission dialog when crontab is installed.
+Remind the operator that the nightly run works only when the Mac is awake at the scheduled time and Voice Memos is running or syncing often enough for new recordings to appear in the source directory. Also tell the operator that Voice Memos iCloud sync should be enabled if they rely on it, the Mac should be plugged in, and macOS may show a permission dialog when the schedule is installed.
 
 ## Debug Playbook
 
@@ -196,9 +206,9 @@ Confirm `data/YYYYMMDD/` contains at least one `.m4a`. Run `python -m intake_ski
 
 Run `which codex` and the trivial `codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"` prompt. If either fails, keep `postprocess --engine codex` disabled. Mock postprocess remains available for local validation.
 
-### Cron did not run
+### Nightly Run Did Not Run
 
-Check `crontab -l` for the `# intake_skill midnight run` marker. Inspect `logs/intake_cron.log`. Confirm the repo `.venv/bin/python` path still exists, the Mac was awake, and Voice Memos had synced files before midnight. Do not reinstall cron by replacing the whole crontab; rerun `install-cron --dry-run` and compare the marker.
+Check `crontab -l` for the `# intake_skill nightly run` marker. Inspect `logs/intake_cron.log`. Confirm the repo `.venv/bin/python` path still exists, the Mac was awake, and Voice Memos had synced files before midnight. Do not reinstall the nightly run by replacing the whole schedule; rerun `install-cron --dry-run` and compare the marker.
 
 ### Output files are missing
 
@@ -248,4 +258,4 @@ data/YYYYMMDD/daily_YYYYMMDD.html
 data/YYYYMMDD/meetings/*.md
 ```
 
-Existing synced audio destinations are skipped rather than overwritten. Cron backups live under `logs/crontab_backup_*.txt`; cron output goes to `logs/intake_cron.log`.
+Existing synced audio destinations are skipped rather than overwritten. Nightly-run schedule backups live under `logs/crontab_backup_*.txt`; nightly-run output goes to `logs/intake_cron.log`.

@@ -12,6 +12,7 @@
 - Reframed `README.md` as a human handoff page that tells users to give the GitHub URL to an AI agent, moved the detailed installer, operation, and debug playbook into `skills/skill_intake.md`, and documented that first-run setup must verify real MLX ASR on synthetic sample audio rather than stopping at mock validation.
 - Updated Codex postprocessing to omit the hardcoded model flag so the Codex CLI uses the user's configured default model while keeping the existing `--full-auto -c model_reasoning_effort=low` invocation.
 - Updated the installer guidance so agents install the repo as a project-local skill under `skills/intake-skill`, validate synthetic sample audio through real MLX ASR and Codex postprocessing by default, and offer cron only after explaining the Voice Memos sync and Mac wake/power requirements.
+- Polished installer/user-facing copy to describe the optional nightly schedule in plain language, warn that the first speech-model run may take time, and point users to the generated output folder.
 - Validation update: `uv pip install -e '.[dev]'` refreshed editable metadata; `python -m pytest -q` passed with 15 tests; LSP diagnostics were clean for changed Python files; CLI manual QA covered `--help`, mock postprocess happy path, invalid engine handling, and Codex command construction without a model flag.
 
 ## Lessons Learned
