@@ -16,15 +16,15 @@ The CLI must expose `doctor`, `sync`, `asr`, `postprocess`, `run-day`, `install-
 
 Sync is Voice Memos only. The default source is `~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/`. It discovers `.qta` and `.m4a` files and writes them to `data/YYYYMMDD/YYYYMMDD_HHMM_watch.m4a`. Repeated runs must skip existing outputs rather than overwrite them.
 
-ASR writes `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns. There is no speaker recognition. Mock ASR must work offline. MLX ASR is an optional runtime path for operators who install `mlx-whisper` themselves.
+ASR writes `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns. There is no speaker recognition. Mock ASR must work offline. First-run setup must also verify the real MLX ASR path by installing `mlx-whisper`, downloading or initializing the local model through a synthetic sample transcription, and confirming the transcript CSV contract. If the target Mac cannot complete that path, setup should be marked blocked with the exact reason.
 
-Postprocessing supports `mock` and `codex`. Mock mode writes deterministic markdown, HTML, and `meetings/*.md` files. Codex mode may call an external service through `codex exec --full-auto -m gpt-5.2 -c model_reasoning_effort=low`; documentation must warn about transcript content leaving the local machine.
+Postprocessing supports `mock` and `codex`. Mock mode writes deterministic markdown, HTML, and `meetings/*.md` files. Codex mode may call an external service through `codex exec --full-auto -c model_reasoning_effort=low`; documentation must warn about transcript content leaving the local machine. The CLI must not pass a hardcoded Codex model flag, so Codex uses the user's configured default model.
 
 Cron installation must back up the current crontab and append one midnight line. It must support `--dry-run` and never overwrite backup files.
 
 ## Success Criteria
 
-`uv pip install -e '.[dev]'` and `python -m pytest -q` run offline from a clean checkout with cached packaging tools. `doctor`, `sync --dry-run`, mock ASR, mock postprocess, and mock `run-day` can be exercised without private Voice Memos data.
+`uv pip install -e '.[dev]'` and `python -m pytest -q` run offline from a clean checkout with cached packaging tools. `doctor`, `sync --dry-run`, mock ASR, mock postprocess, and mock `run-day` can be exercised without private Voice Memos data. Installer agents additionally validate real MLX ASR on synthetic sample audio before declaring setup complete.
 
 ## Non-Goals
 

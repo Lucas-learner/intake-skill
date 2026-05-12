@@ -9,6 +9,9 @@
 - Added dry-run sync and dry-run cron paths before any operation touches user-owned audio or crontab state.
 - Added sync `--date` filtering, ASR `--mock-text`, external Codex prompt-template loading, and explicit prompt-injection guardrails.
 - Validation update: `python -m pytest -q` passed with 14 tests; `doctor` returned status `ok`; sample audio was generated as `examples/sample_audio/sample.wav` and `examples/sample_audio/sample.m4a`; the mock `run-day` flow copied one sample `.m4a` into `tmp/validation_data`, wrote `transcript_YYYYMMDD.csv`, `daily_YYYYMMDD.md`, `daily_YYYYMMDD.html`, and `meetings/meeting_YYYYMMDD.md`; Codex and MLX live integrations were not invoked.
+- Reframed `README.md` as a human handoff page that tells users to give the GitHub URL to an AI agent, moved the detailed installer, operation, and debug playbook into `skills/skill_intake.md`, and documented that first-run setup must verify real MLX ASR on synthetic sample audio rather than stopping at mock validation.
+- Updated Codex postprocessing to omit the hardcoded model flag so the Codex CLI uses the user's configured default model while keeping the existing `--full-auto -c model_reasoning_effort=low` invocation.
+- Validation update: `uv pip install -e '.[dev]'` refreshed editable metadata; `python -m pytest -q` passed with 15 tests; LSP diagnostics were clean for changed Python files; CLI manual QA covered `--help`, mock postprocess happy path, invalid engine handling, and Codex command construction without a model flag.
 
 ## Lessons Learned
 
@@ -16,3 +19,4 @@
 - The transcript CSV schema is an external contract: exactly `speaker,content`, with blank speaker values unless a future explicit requirement changes that boundary.
 - Codex postprocessing must remain opt-in because transcript content crosses a service boundary.
 - Treat transcript text as untrusted source data inside any AI postprocessing prompt; spoken words can accidentally contain instruction-like phrases.
+- A human-facing README should stop before operational detail; the AI-facing skill file is the right place for install gates, validation commands, artifact contracts, and concrete debugging branches.
