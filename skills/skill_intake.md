@@ -13,21 +13,22 @@ Use this skill when a user asks an AI agent to install or operate the Intake Ski
 Install this repo for me: https://github.com/grapeot/intake-skill
 ```
 
-The job is complete only after the local CLI is installed, tests pass, real local ASR has been installed and verified, a sample audio file has gone through the workflow end to end, and the operator has made an explicit choice about external Codex postprocessing and optional nightly cron.
+The job is complete only after the repo is cloned as a project-local skill, the local CLI is installed, tests pass, real local ASR has been installed and verified, a sample audio file has gone through sync, MLX ASR, and Codex postprocessing end to end, and the operator has made an explicit choice about optional nightly cron.
 
-## Scope and Privacy
+## Scope and Runtime Defaults
 
 Intake Skill is Voice Memos only. It reads files that Apple Voice Memos has already synced to the Mac. Do not add microphone recording, non-Voice-Memos sources, speaker recognition, diarization, reference voices, or participant attribution.
 
-Mock postprocessing and MLX ASR are intended to run locally. Codex postprocessing sends transcript content to the external service used by the local Codex CLI. Before enabling `postprocess --engine codex`, verify Codex with a trivial non-private prompt and confirm the operator accepts that transcripts will leave the local machine.
+Mock engines are retained for unit tests and explicit offline debugging. Functional setup and operation should use MLX ASR and Codex postprocessing by default. Before processing real Voice Memos, verify Codex with a trivial non-private prompt and validate Codex postprocessing on synthetic sample audio.
 
 ## Install from GitHub
 
-Start in a directory where the user keeps local tools. If the repo already exists, inspect it rather than cloning over it.
+Start in the user's current workspace and install this repo as a project-local skill, not as a standard global Codex skill. If `skills/intake-skill` already exists, inspect it rather than cloning over it.
 
 ```bash
-git clone https://github.com/grapeot/intake-skill.git
-cd intake-skill
+mkdir -p skills
+git clone https://github.com/grapeot/intake-skill.git skills/intake-skill
+cd skills/intake-skill
 uv venv .venv
 source .venv/bin/activate
 uv pip install -e '.[dev]'
@@ -71,9 +72,9 @@ uv pip install mlx-whisper
 python -c "import mlx_whisper; print('mlx-whisper import ok')"
 ```
 
-Then force the model download and execution path by running ASR on a non-private sample through `--engine mlx`. The current CLI calls `mlx_whisper.transcribe()` with its configured default model. A successful run should produce a non-empty `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns.
+Then force the model download and execution path by running ASR on a non-private sample through `--engine mlx`. The current CLI calls `mlx_whisper.transcribe()` with its configured default model. A successful run should download or initialize the default MLX Whisper model and produce a non-empty `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns.
 
-If the Mac, Python version, package resolver, or network cannot install `mlx-whisper`, or if the model cannot download or execute, mark setup blocked. Include the exact command, exit code, and error text. Do not declare setup complete based only on `--engine mock`.
+If the Mac, Python version, package resolver, or network cannot install `mlx-whisper`, or if the model cannot download or execute, mark setup blocked. Include the exact command, exit code, and error text. Do not declare setup complete based on mock engines.
 
 ## Sample Audio End-to-End Validation
 
@@ -90,7 +91,8 @@ python -m intake_skill make-sample-audio --output "$VALIDATION_SOURCE/sample.m4a
 python -m intake_skill sync --source "$VALIDATION_SOURCE" --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --dry-run
 python -m intake_skill sync --source "$VALIDATION_SOURCE" --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY"
 python -m intake_skill asr --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine mlx
-python -m intake_skill postprocess --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine mock
+codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"
+python -m intake_skill postprocess --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine codex
 ```
 
 If `make-sample-audio` reports a `.wav` output instead of `.m4a`, install or fix `ffmpeg` and rerun the sample generation. Sync only processes `.m4a` and `.qta` files.
@@ -103,24 +105,24 @@ Verify these artifacts exist and contain expected content:
 - `$VALIDATION_DATA/YYYYMMDD/daily_YYYYMMDD.html`
 - `$VALIDATION_DATA/YYYYMMDD/meetings/*.md`
 
-Open the CSV and confirm the header is exactly `speaker,content` and at least one `content` cell is non-empty. Open the Markdown and HTML reports and confirm they reflect the sample transcript. If the user asks for a full mock-only smoke test as a separate check, run `run-day` with `--asr-engine mock --postprocess-engine mock`, but keep real MLX ASR as the setup gate.
+Open the CSV and confirm the header is exactly `speaker,content` and at least one `content` cell is non-empty. Open the Markdown and HTML reports and confirm they reflect the sample transcript. If the user asks for a mock-only smoke test as a separate development check, run `run-day` with `--asr-engine mock --postprocess-engine mock`, but keep real MLX ASR and Codex postprocessing as the setup gate.
 
-## Validate Codex Before Enabling It
+## Validate Codex During Setup
 
 Codex uses the user's configured default model. The CLI must not pass a hardcoded `-m` model flag.
 
-Before running private transcripts through Codex, verify the CLI with a trivial non-private prompt:
+Before running real Voice Memos through Codex, verify the CLI with a trivial non-private prompt:
 
 ```bash
 codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"
 ```
 
-If this fails, leave Codex disabled and record the exact failure. If it succeeds, explain the privacy boundary again: `postprocess --engine codex` sends transcript content to the Codex service through the local Codex CLI.
+If this fails, leave Codex disabled and record the exact failure. If it succeeds, continue with synthetic-sample Codex validation.
 
-After the operator accepts that boundary, validate Codex on the synthetic sample only:
+Then validate Codex on the synthetic sample:
 
 ```bash
-python -m intake_skill postprocess --data-dir tmp/intake_validation_data --date "$VALIDATION_DAY" --engine codex
+python -m intake_skill postprocess --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine codex
 ```
 
 Verify that Codex writes the same artifact contract: daily Markdown, daily HTML, and meeting-note Markdown under the requested day directory.
@@ -136,10 +138,10 @@ python -m intake_skill sync --date YYYYMMDD --dry-run
 Inspect the JSON `items` array. Confirm sources are under the Voice Memos directory and destinations are under `data/YYYYMMDD/`. Then run the day:
 
 ```bash
-python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine mock
+python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine codex
 ```
 
-Use `--postprocess-engine codex` only after the Codex validation and privacy confirmation above.
+Use the real Voice Memos path only after the synthetic-sample MLX and Codex validation succeeds.
 
 ## Cron Installation
 
@@ -166,7 +168,7 @@ python -m intake_skill install-cron
 
 The CLI also writes a timestamped backup under `logs/crontab_backup_*.txt` and appends one marked line if absent. Append only; never replace the user's crontab. Do not run cron installation during tests or documentation-only changes.
 
-Remind the operator that cron works only when the Mac is awake at the scheduled time and Voice Memos is running or syncing often enough for new recordings to appear in the source directory.
+Remind the operator that cron works only when the Mac is awake at the scheduled time and Voice Memos is running or syncing often enough for new recordings to appear in the source directory. Also tell the operator that Voice Memos iCloud sync should be enabled if they rely on it, the Mac should be plugged in, and macOS may show a permission dialog when crontab is installed.
 
 ## Debug Playbook
 
