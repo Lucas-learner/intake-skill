@@ -59,9 +59,9 @@ def run_mock_postprocess(data_dir: Path, day: str) -> dict[str, object]:
             "",
         ]
     )
-    daily_md.write_text(markdown, encoding="utf-8")
-    daily_html.write_text(markdown_to_html(markdown, f"Daily Intake {day}"), encoding="utf-8")
-    meeting.write_text(f"# Mock Meeting Notes {day}\n\nNo meeting detection is performed by the mock engine.\n", encoding="utf-8")
+    _ = daily_md.write_text(markdown, encoding="utf-8")
+    _ = daily_html.write_text(markdown_to_html(markdown, f"Daily Intake {day}"), encoding="utf-8")
+    _ = meeting.write_text(f"# Mock Meeting Notes {day}\n\nNo meeting detection is performed by the mock engine.\n", encoding="utf-8")
     return {
         "command": "postprocess",
         "engine": "mock",
@@ -107,18 +107,16 @@ def run_codex_postprocess(data_dir: Path, day: str) -> dict[str, object]:
     directory = data_dir / day
     directory.mkdir(parents=True, exist_ok=True)
     prompt_path = directory / f"codex_postprocess_prompt_{day}.md"
-    prompt_path.write_text(build_codex_prompt(data_dir, day), encoding="utf-8")
+    _ = prompt_path.write_text(build_codex_prompt(data_dir, day), encoding="utf-8")
     command = [
         "codex",
         "exec",
         "--full-auto",
-        "-m",
-        "gpt-5.2",
         "-c",
         "model_reasoning_effort=low",
         prompt_path.read_text(encoding="utf-8"),
     ]
-    subprocess.run(command, cwd=directory, check=True)
+    _ = subprocess.run(command, cwd=directory, check=True)
     return {"command": "postprocess", "engine": "codex", "day": day, "prompt_path": str(prompt_path)}
 
 
