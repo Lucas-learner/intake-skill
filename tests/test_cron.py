@@ -11,6 +11,7 @@ def test_cron_dry_run_appends_midnight_line(tmp_path) -> None:
     summary = cron.append_cron(tmp_path, dry_run=True, current="MAILTO=me@example.com\n")
     assert summary["dry_run"] is True
     assert "0 0 * * *" in summary["cron_line"]
+    assert "--asr-engine mlx --postprocess-engine codex" in summary["cron_line"]
     assert cron.CRON_MARKER in summary["new_crontab"]
     assert "MAILTO=me@example.com" in summary["new_crontab"]
 

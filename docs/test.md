@@ -17,7 +17,7 @@ Covered areas:
 
 ## Manual Validation
 
-Run these commands from the repo root after installation. The mock path proves local file wiring; the first-run setup guide in `skills/skill_intake.md` requires the same sample to pass through real MLX ASR before setup is complete.
+Run these commands from the repo root after installation. Unit tests may use mock engines for deterministic local assertions; the first-run setup guide in `skills/skill_intake.md` requires the sample to pass through real MLX ASR and Codex postprocessing before setup is complete.
 
 ```bash
 python -m intake_skill --help
@@ -30,18 +30,18 @@ python -m intake_skill run-day --source examples/sample_audio --data-dir tmp/val
 
 The end-to-end mock validation should copy one sample `.m4a` into `tmp/validation_data/20260512/`, write `transcript_20260512.csv`, then write `daily_20260512.md`, `daily_20260512.html`, and `meetings/meeting_20260512.md`. If the sample file timestamp is different from `20260512`, update the command date to the sample file's modification day before running the validation.
 
-For setup validation, install `mlx-whisper` in the venv, generate a non-private `.m4a` sample, sync it or place it under `tmp/validation_data/YYYYMMDD/`, run `python -m intake_skill asr --data-dir tmp/validation_data --date YYYYMMDD --engine mlx`, and verify the CSV has exactly `speaker,content` columns with non-empty content. If MLX cannot install, download its model, or transcribe the sample on the target Mac, setup is blocked and the exact failing command should be recorded.
+For setup validation, install `mlx-whisper` in the venv, generate a non-private `.m4a` sample, sync it or place it under `tmp/validation_data/YYYYMMDD/`, run `python -m intake_skill asr --data-dir tmp/validation_data --date YYYYMMDD --engine mlx`, and verify the CSV has exactly `speaker,content` columns with non-empty content. This run must force the MLX Whisper model download and execution path. If MLX cannot install, download its model, or transcribe the sample on the target Mac, setup is blocked and the exact failing command should be recorded.
 
-Before enabling Codex postprocessing, run a trivial non-private prompt through the user's configured Codex CLI:
+During setup, run a trivial non-private prompt through the user's configured Codex CLI:
 
 ```bash
 codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"
 ```
 
-The CLI intentionally omits a `-m` flag so Codex uses the user's configured default model. Codex validation against real transcripts remains opt-in because transcript content crosses an external-service boundary.
+The CLI intentionally omits a `-m` flag so Codex uses the user's configured default model. Codex validation on synthetic sample transcripts is part of the default installer flow.
 
 For live Voice Memos use, run `sync --dry-run` first and inspect the planned destination paths before copying private audio.
 
 ## Integration Notes
 
-No live integration tests are enabled by default. MLX ASR depends on operator-installed `mlx-whisper` and a locally downloaded model. Codex postprocessing depends on a configured `codex` CLI and sends transcript content to an external service. Offline tests validate the Codex prompt text, driver prompt, and command construction without invoking Codex.
+No live integration tests are enabled by default. MLX ASR depends on operator-installed `mlx-whisper` and a locally downloaded model. Codex postprocessing depends on a configured `codex` CLI. Offline tests validate the Codex prompt text, driver prompt, and command construction without invoking Codex.

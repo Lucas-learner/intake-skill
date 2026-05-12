@@ -46,19 +46,19 @@ def build_parser() -> argparse.ArgumentParser:
     asr = subparsers.add_parser("asr", help="Transcribe one day of synced audio")
     add_common_paths(asr)
     asr.add_argument("--date", default=today(), help="Day to transcribe as YYYYMMDD")
-    asr.add_argument("--engine", choices=["mock", "mlx"], default="mock")
+    asr.add_argument("--engine", choices=["mock", "mlx"], default="mlx")
     asr.add_argument("--mock-text", default=None, help="Use this exact content for each mock transcript row")
 
     post = subparsers.add_parser("postprocess", help="Generate daily reports from a transcript")
     add_common_paths(post)
     post.add_argument("--date", default=today(), help="Day to postprocess as YYYYMMDD")
-    post.add_argument("--engine", choices=["mock", "codex"], default="mock")
+    post.add_argument("--engine", choices=["mock", "codex"], default="codex")
 
     run_day = subparsers.add_parser("run-day", help="Run sync, ASR, and postprocess for one day")
     add_common_paths(run_day)
     run_day.add_argument("--date", default=today(), help="Day to process as YYYYMMDD")
-    run_day.add_argument("--asr-engine", choices=["mock", "mlx"], default="mock")
-    run_day.add_argument("--postprocess-engine", choices=["mock", "codex"], default="mock")
+    run_day.add_argument("--asr-engine", choices=["mock", "mlx"], default="mlx")
+    run_day.add_argument("--postprocess-engine", choices=["mock", "codex"], default="codex")
     run_day.add_argument("--mock-text", default=None, help="Use this exact content for mock ASR during run-day")
     run_day.add_argument("--dry-run-sync", action="store_true", help="Plan sync only; ASR and postprocess still run against existing data")
 

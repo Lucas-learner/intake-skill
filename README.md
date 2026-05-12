@@ -2,13 +2,13 @@
 
 Intake Skill turns Apple Voice Memos that have already synced to a Mac into dated local intake artifacts: normalized audio files, transcript CSVs, daily Markdown and HTML reports, and meeting-note Markdown files.
 
-This repo is meant to be installed by an AI agent. Give the agent this URL:
+This repo is meant to be installed by an AI agent as a project-local skill, not as a standard global Codex skill. Give the agent this URL from the workspace where you want the skill to live:
 
 ```text
 https://github.com/grapeot/intake-skill
 ```
 
-Ask it: "Install this repo for me: https://github.com/grapeot/intake-skill". The agent should clone the repo, install it, configure the local Voice Memos path, verify real local ASR, validate sample audio end to end, and only then discuss optional Codex postprocessing or nightly cron.
+Ask it: "Install this repo for me: https://github.com/grapeot/intake-skill". The agent should clone the repo under the current folder, normally at `skills/intake-skill`, install Python dependencies, install `mlx-whisper`, download and exercise the default MLX Whisper model by transcribing synthetic sample audio, run sync, ASR, and Codex postprocessing end to end, and then explain how to enable the optional nightly cron job.
 
 The detailed installer and operating guide lives in [`skills/skill_intake.md`](skills/skill_intake.md). Human readers normally do not need to run commands from this README; the skill file contains the exact playbook an AI agent should follow.
 
@@ -18,11 +18,11 @@ Intake Skill is intentionally narrow. It reads Apple Voice Memos files from the 
 
 It does not record microphone audio. It does not add non-Voice-Memos intake. It does not perform speaker recognition, diarization, reference voice matching, or participant attribution.
 
-## Privacy Boundary
+## Runtime Boundary
 
-Mock postprocessing and MLX ASR are intended to run locally. Codex postprocessing is different: `postprocess --engine codex` sends transcript content to the external service used by the local Codex CLI. Use Codex mode only after the operator accepts that boundary.
+MLX ASR is intended to run locally after `mlx-whisper` and its model are installed. Codex postprocessing is the default AI summarization path for this workflow and uses the operator's configured local Codex CLI. Installer agents should validate Codex postprocessing on synthetic sample audio during setup.
 
-Cron is optional. If enabled, the Mac must stay awake at the scheduled time, and Voice Memos must remain running or syncing often enough for new recordings to appear locally.
+Nightly cron is optional and should be installed only after the operator confirms it. If enabled, the Mac must stay awake at the scheduled time, remain plugged in or otherwise powered, and Voice Memos must keep syncing often enough for new recordings to appear locally.
 
 ## For AI Agents
 

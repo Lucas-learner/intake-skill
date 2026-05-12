@@ -16,8 +16,13 @@ def test_parser_accepts_required_commands() -> None:
     asr_args = parser.parse_args(["asr", "--engine", "mock", "--mock-text", "installer text"])
     assert asr_args.engine == "mock"
     assert asr_args.mock_text == "installer text"
+    assert parser.parse_args(["asr"]).engine == "mlx"
     assert parser.parse_args(["postprocess", "--engine", "codex"]).engine == "codex"
+    assert parser.parse_args(["postprocess"]).engine == "codex"
     assert parser.parse_args(["run-day", "--asr-engine", "mock", "--postprocess-engine", "mock"]).command == "run-day"
+    run_day_defaults = parser.parse_args(["run-day"])
+    assert run_day_defaults.asr_engine == "mlx"
+    assert run_day_defaults.postprocess_engine == "codex"
     assert parser.parse_args(["install-cron", "--dry-run"]).dry_run is True
     assert parser.parse_args(["make-sample-audio", "--seconds", "1"]).seconds == 1
 
