@@ -1,78 +1,249 @@
 ---
 name: intake-skill
 description: >-
-  Runs a Voice Memos intake workflow via python -m intake_skill: sync local Voice Memos, create transcript CSVs, and generate daily artifacts.
+  Install, verify, operate, and debug the Apple Voice Memos Intake Skill via python -m intake_skill.
 disable-model-invocation: true
 ---
 
 # Intake Skill
 
-Use this skill when an agent needs to install, verify, or operate a local Apple Voice Memos intake workflow. The CLI is designed for AI agents: every command prints JSON, mock engines work offline, and privacy boundaries are explicit.
+Use this skill when a user asks an AI agent to install or operate the Intake Skill repo. The expected user request is:
 
-## When to use
+```text
+Install this repo for me: https://github.com/grapeot/intake-skill
+```
 
-Use for these intents:
+The job is complete only after the local CLI is installed, tests pass, real local ASR has been installed and verified, a sample audio file has gone through the workflow end to end, and the operator has made an explicit choice about external Codex postprocessing and optional nightly cron.
 
-- Process Apple Voice Memos into daily files.
-- Dry-run a Voice Memos sync before touching private audio.
-- Generate a mock transcript and mock daily report for installation testing.
-- Install a midnight cron job for a Mac that stays awake and keeps Voice Memos syncing.
-- Create synthetic sample audio with no private content.
+## Scope and Privacy
 
-## Prerequisites
+Intake Skill is Voice Memos only. It reads files that Apple Voice Memos has already synced to the Mac. Do not add microphone recording, non-Voice-Memos sources, speaker recognition, diarization, reference voices, or participant attribution.
 
-Install from the repository root:
+Mock postprocessing and MLX ASR are intended to run locally. Codex postprocessing sends transcript content to the external service used by the local Codex CLI. Before enabling `postprocess --engine codex`, verify Codex with a trivial non-private prompt and confirm the operator accepts that transcripts will leave the local machine.
+
+## Install from GitHub
+
+Start in a directory where the user keeps local tools. If the repo already exists, inspect it rather than cloning over it.
 
 ```bash
+git clone https://github.com/grapeot/intake-skill.git
+cd intake-skill
 uv venv .venv
 source .venv/bin/activate
 uv pip install -e '.[dev]'
 python -m pytest -q
+python -m intake_skill --help
 ```
 
-Default source:
+If `uv` is missing, install `uv` first by the user's normal package manager or mark setup blocked with the exact reason. Do not switch to a global `pip install` unless the user explicitly requests it.
+
+## First-Run Setup Gate
+
+Run `doctor` and inspect the JSON before touching private audio:
+
+```bash
+python -m intake_skill doctor
+```
+
+Interpret the JSON directly:
+
+- `status: ok` means the data parent exists. Continue checking individual fields.
+- `checks.source_exists: true` means the configured source path exists.
+- `checks.source_is_voice_memos_default: true` means the source is the standard macOS Voice Memos container.
+- `checks.ffmpeg_available: true` is required for `.qta` conversion and reliable `.m4a` sample generation.
+- `checks.codex_available: true` is required only for Codex postprocessing.
+
+The standard Voice Memos source is:
 
 ```text
 ~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/
 ```
 
-The Mac must be awake when cron runs, and Voice Memos must be running or syncing often enough for new recordings to appear locally.
+If this path is absent or empty, do not invent another intake source. Open Voice Memos, let iCloud/local sync finish, and rerun `doctor` and `sync --dry-run`. If the user stores Voice Memos elsewhere, pass `--source` explicitly and document that choice.
 
-## Commands
+## Install and Verify Real ASR
+
+The mock engine is useful for offline tests, but initial setup must verify the real ASR path before declaring installation complete. Install MLX ASR dependencies inside the repo venv:
 
 ```bash
-python -m intake_skill doctor
-python -m intake_skill sync --date YYYYMMDD --dry-run
-python -m intake_skill sync --date YYYYMMDD
-python -m intake_skill asr --date YYYYMMDD --engine mock --mock-text "Installer validation transcript."
-python -m intake_skill postprocess --date YYYYMMDD --engine mock
-python -m intake_skill run-day --date YYYYMMDD --asr-engine mock --postprocess-engine mock
-python -m intake_skill install-cron --dry-run
-python -m intake_skill make-sample-audio --output examples/sample.wav
+source .venv/bin/activate
+uv pip install mlx-whisper
+python -c "import mlx_whisper; print('mlx-whisper import ok')"
 ```
 
-Pass `--source`, `--data-dir`, and `--repo-root` to override defaults. Prefer `sync --date YYYYMMDD --dry-run` before a real sync when validating one day.
+Then force the model download and execution path by running ASR on a non-private sample through `--engine mlx`. The current CLI calls `mlx_whisper.transcribe()` with its configured default model. A successful run should produce a non-empty `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns.
 
-## Output Contract
+If the Mac, Python version, package resolver, or network cannot install `mlx-whisper`, or if the model cannot download or execute, mark setup blocked. Include the exact command, exit code, and error text. Do not declare setup complete based only on `--engine mock`.
 
-Sync reads `.qta` and `.m4a` files only and writes `data/YYYYMMDD/YYYYMMDD_HHMM_watch.m4a`. `--date YYYYMMDD` limits discovery to files whose modification timestamp falls on that day. Existing destination files are skipped, not overwritten.
+## Sample Audio End-to-End Validation
 
-ASR writes `data/YYYYMMDD/transcript_YYYYMMDD.csv` with exactly these columns:
+Use synthetic audio with no private content. This validates the same file contracts the nightly job uses.
+
+```bash
+source .venv/bin/activate
+VALIDATION_DAY=$(date +%Y%m%d)
+VALIDATION_ROOT="tmp/intake_validation_$(date +%Y%m%d_%H%M%S)"
+VALIDATION_SOURCE="$VALIDATION_ROOT/source"
+VALIDATION_DATA="$VALIDATION_ROOT/data"
+mkdir -p "$VALIDATION_SOURCE" "$VALIDATION_DATA"
+python -m intake_skill make-sample-audio --output "$VALIDATION_SOURCE/sample.m4a" --seconds 3
+python -m intake_skill sync --source "$VALIDATION_SOURCE" --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --dry-run
+python -m intake_skill sync --source "$VALIDATION_SOURCE" --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY"
+python -m intake_skill asr --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine mlx
+python -m intake_skill postprocess --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine mock
+```
+
+If `make-sample-audio` reports a `.wav` output instead of `.m4a`, install or fix `ffmpeg` and rerun the sample generation. Sync only processes `.m4a` and `.qta` files.
+
+Verify these artifacts exist and contain expected content:
+
+- `$VALIDATION_DATA/YYYYMMDD/YYYYMMDD_HHMM_watch.m4a`
+- `$VALIDATION_DATA/YYYYMMDD/transcript_YYYYMMDD.csv`
+- `$VALIDATION_DATA/YYYYMMDD/daily_YYYYMMDD.md`
+- `$VALIDATION_DATA/YYYYMMDD/daily_YYYYMMDD.html`
+- `$VALIDATION_DATA/YYYYMMDD/meetings/*.md`
+
+Open the CSV and confirm the header is exactly `speaker,content` and at least one `content` cell is non-empty. Open the Markdown and HTML reports and confirm they reflect the sample transcript. If the user asks for a full mock-only smoke test as a separate check, run `run-day` with `--asr-engine mock --postprocess-engine mock`, but keep real MLX ASR as the setup gate.
+
+## Validate Codex Before Enabling It
+
+Codex uses the user's configured default model. The CLI must not pass a hardcoded `-m` model flag.
+
+Before running private transcripts through Codex, verify the CLI with a trivial non-private prompt:
+
+```bash
+codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"
+```
+
+If this fails, leave Codex disabled and record the exact failure. If it succeeds, explain the privacy boundary again: `postprocess --engine codex` sends transcript content to the Codex service through the local Codex CLI.
+
+After the operator accepts that boundary, validate Codex on the synthetic sample only:
+
+```bash
+python -m intake_skill postprocess --data-dir tmp/intake_validation_data --date "$VALIDATION_DAY" --engine codex
+```
+
+Verify that Codex writes the same artifact contract: daily Markdown, daily HTML, and meeting-note Markdown under the requested day directory.
+
+## Real Voice Memos Operation
+
+Preview first:
+
+```bash
+python -m intake_skill sync --date YYYYMMDD --dry-run
+```
+
+Inspect the JSON `items` array. Confirm sources are under the Voice Memos directory and destinations are under `data/YYYYMMDD/`. Then run the day:
+
+```bash
+python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine mock
+```
+
+Use `--postprocess-engine codex` only after the Codex validation and privacy confirmation above.
+
+## Cron Installation
+
+Cron is optional. Install it only after the user confirms this Mac should run Intake Skill nightly.
+
+First preview the line and backup path:
+
+```bash
+python -m intake_skill install-cron --dry-run
+```
+
+Before installing for real, back up the current crontab yourself as an extra operator-visible checkpoint:
+
+```bash
+mkdir -p logs
+crontab -l > logs/crontab_manual_backup_$(date +%Y%m%d_%H%M%S).txt 2>/dev/null || true
+```
+
+Then install only after confirmation:
+
+```bash
+python -m intake_skill install-cron
+```
+
+The CLI also writes a timestamped backup under `logs/crontab_backup_*.txt` and appends one marked line if absent. Append only; never replace the user's crontab. Do not run cron installation during tests or documentation-only changes.
+
+Remind the operator that cron works only when the Mac is awake at the scheduled time and Voice Memos is running or syncing often enough for new recordings to appear in the source directory.
+
+## Debug Playbook
+
+### `doctor` JSON shows warnings
+
+Read the specific `checks` keys. `data_parent_exists: false` means create or choose a valid parent directory. `source_exists: false` means Voice Memos has not synced locally or the source path override is wrong. `ffmpeg_available: false` affects `.qta` conversion and `.m4a` sample generation. `codex_available: false` affects only Codex postprocessing.
+
+### Voice Memos source is empty
+
+Confirm the default path exists, Voice Memos is open, iCloud sync is enabled if the user relies on it, and recordings are visible in the app. Rerun `sync --dry-run`. Do not switch to microphone recording or another audio directory as a workaround.
+
+### `ffmpeg` is missing
+
+Install it with the user's normal package manager, then rerun `doctor`. Without `ffmpeg`, `.qta` conversion fails and sample `.m4a` generation may fall back to `.wav`, which sync ignores.
+
+### MLX install or model download fails
+
+Rerun `source .venv/bin/activate`, `uv pip install mlx-whisper`, and the `python -c "import mlx_whisper"` check. Then rerun ASR on the synthetic sample. If package install, import, model download, or transcribe fails, setup is blocked. Report the exact failing command and error text.
+
+### ASR CSV missing or wrong schema
+
+Confirm `data/YYYYMMDD/` contains at least one `.m4a`. Run `python -m intake_skill asr --data-dir DATA --date YYYYMMDD --engine mlx`. Open `transcript_YYYYMMDD.csv`; the header must be exactly `speaker,content`. If the header differs, treat it as a contract failure. If rows are empty, check that audio files exist and the MLX transcribe call returned text.
+
+### Codex unavailable
+
+Run `which codex` and the trivial `codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"` prompt. If either fails, keep `postprocess --engine codex` disabled. Mock postprocess remains available for local validation.
+
+### Cron did not run
+
+Check `crontab -l` for the `# intake_skill midnight run` marker. Inspect `logs/intake_cron.log`. Confirm the repo `.venv/bin/python` path still exists, the Mac was awake, and Voice Memos had synced files before midnight. Do not reinstall cron by replacing the whole crontab; rerun `install-cron --dry-run` and compare the marker.
+
+### Output files are missing
+
+Trace the pipeline in order: sync should produce `.m4a` files under `data/YYYYMMDD/`; ASR should produce `transcript_YYYYMMDD.csv`; postprocess should produce `daily_YYYYMMDD.md`, `daily_YYYYMMDD.html`, and files under `meetings/`. Rerun the first missing stage with explicit `--data-dir`, `--source`, and `--date` arguments.
+
+## Command Reference
+
+```bash
+python -m intake_skill doctor [--source PATH] [--data-dir PATH] [--repo-root PATH]
+python -m intake_skill sync [--source PATH] [--data-dir PATH] [--date YYYYMMDD] [--dry-run]
+python -m intake_skill asr [--data-dir PATH] [--date YYYYMMDD] [--engine mock|mlx] [--mock-text TEXT]
+python -m intake_skill postprocess [--data-dir PATH] [--date YYYYMMDD] [--engine mock|codex]
+python -m intake_skill run-day [--source PATH] [--data-dir PATH] [--date YYYYMMDD] [--asr-engine mock|mlx] [--postprocess-engine mock|codex] [--mock-text TEXT] [--dry-run-sync]
+python -m intake_skill install-cron [--repo-root PATH] [--dry-run]
+python -m intake_skill make-sample-audio --output PATH [--seconds N]
+```
+
+All commands print JSON summaries. Prefer parsing JSON fields instead of scraping prose.
+
+## Artifact Contract
+
+Sync reads only `.qta` and `.m4a` files. It writes normalized audio files under:
+
+```text
+data/YYYYMMDD/YYYYMMDD_HHMM_watch.m4a
+```
+
+ASR writes one CSV per day:
+
+```text
+data/YYYYMMDD/transcript_YYYYMMDD.csv
+```
+
+The CSV header is exactly:
 
 ```csv
 speaker,content
 ```
 
-The `speaker` column is blank in current engines. Mock ASR accepts `--mock-text` for deterministic installer validation. The skill does not perform speaker recognition, diarization, reference voice matching, or microphone recording.
+The `speaker` column is blank in current engines. This skill does not infer identity.
 
-Mock postprocess writes `daily_YYYYMMDD.md`, `daily_YYYYMMDD.html`, and `meetings/*.md`.
+Postprocess writes:
 
-## External-Service Warning
-
-`postprocess --engine codex` invokes:
-
-```bash
-codex exec --full-auto -m gpt-5.2 -c model_reasoning_effort=low
+```text
+data/YYYYMMDD/daily_YYYYMMDD.md
+data/YYYYMMDD/daily_YYYYMMDD.html
+data/YYYYMMDD/meetings/*.md
 ```
 
-That mode sends transcript content to the Codex service. The CLI builds the Codex request from `prompts/codex_postprocess.md` and adds guardrails that treat transcript content as untrusted data, forbid speaker identity inference, and forbid invented facts. Use Codex only when the operator accepts that boundary. Use `--engine mock` for offline validation.
+Existing synced audio destinations are skipped rather than overwritten. Cron backups live under `logs/crontab_backup_*.txt`; cron output goes to `logs/intake_cron.log`.
