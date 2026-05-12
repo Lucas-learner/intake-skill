@@ -8,7 +8,7 @@ This repo is meant to be installed by an AI agent as a project-local skill, not 
 https://github.com/grapeot/intake-skill
 ```
 
-Ask it: "Install this repo for me: https://github.com/grapeot/intake-skill". The agent should clone the repo under the current folder, normally at `skills/intake-skill`, install Python dependencies, install `mlx-whisper`, download and exercise the default MLX Whisper model by transcribing synthetic sample audio, run sync, ASR, and Codex postprocessing end to end, and then explain how to enable the optional nightly cron job.
+Ask it: "Install this repo for me: https://github.com/grapeot/intake-skill". The agent should clone the repo under the current folder, normally at `skills/intake-skill`, install Python dependencies, install `mlx-whisper`, tell the user that the first speech-model download may take a little while, transcribe synthetic sample audio, run sync, ASR, and Codex postprocessing end to end, show where the sample outputs were written, and then explain the optional nightly automatic run in plain language.
 
 The detailed installer and operating guide lives in [`skills/skill_intake.md`](skills/skill_intake.md). Human readers normally do not need to run commands from this README; the skill file contains the exact playbook an AI agent should follow.
 
@@ -22,7 +22,7 @@ It does not record microphone audio. It does not add non-Voice-Memos intake. It 
 
 MLX ASR is intended to run locally after `mlx-whisper` and its model are installed. Codex postprocessing is the default AI summarization path for this workflow and uses the operator's configured local Codex CLI. Installer agents should validate Codex postprocessing on synthetic sample audio during setup.
 
-Nightly cron is optional and should be installed only after the operator confirms it. If enabled, the Mac must stay awake at the scheduled time, remain plugged in or otherwise powered, and Voice Memos must keep syncing often enough for new recordings to appear locally.
+The nightly automatic run is optional and should be enabled only after the operator confirms it. If enabled, the Mac must stay awake at the scheduled time, remain plugged in or otherwise powered, and Voice Memos must keep syncing often enough for new recordings to appear locally.
 
 ## For AI Agents
 

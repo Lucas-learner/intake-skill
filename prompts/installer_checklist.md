@@ -16,6 +16,8 @@ python -m intake_skill doctor
 
 Then install and verify real local ASR before declaring setup complete. This must force the default MLX Whisper model download and execution path:
 
+Before running the ASR command, tell the user: "This first transcription may take a little while because it may need to download or warm up the local speech model."
+
 ```bash
 uv pip install mlx-whisper
 python -c "import mlx_whisper; print('mlx-whisper import ok')"
@@ -30,9 +32,10 @@ python -m intake_skill sync --source "$VALIDATION_SOURCE" --data-dir "$VALIDATIO
 python -m intake_skill asr --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine mlx
 codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"
 python -m intake_skill postprocess --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine codex
+open "$VALIDATION_DATA/$VALIDATION_DAY"
 ```
 
-Then explain the real Voice Memos requirements to the operator: iCloud sync for Voice Memos must be enabled if they rely on it, the Mac should be plugged in, and the Mac must be awake rather than shut down when the nightly job is expected to run.
+Then tell the operator where the sample output files were written. If Finder opened successfully, mention that the folder is open; otherwise give the exact path. Explain the real Voice Memos requirements in plain language: iCloud sync for Voice Memos must be enabled if they rely on it, the Mac should be plugged in, and the Mac must be awake rather than shut down when the nightly automatic run is expected to happen.
 
 Preview real Voice Memos sync before running it:
 
@@ -40,7 +43,7 @@ Preview real Voice Memos sync before running it:
 python -m intake_skill sync --dry-run
 ```
 
-If the operator wants daily automatic processing, explain that installing cron may trigger a macOS permission prompt and they should allow it. Then preview, back up, and install cron:
+If the operator wants daily automatic processing, describe it as "a small job that runs every night while your Mac is awake." Mention that macOS may show a permission prompt and they should allow it. Then preview, back up, and install the schedule:
 
 ```bash
 python -m intake_skill install-cron --dry-run
