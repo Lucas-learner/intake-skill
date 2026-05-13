@@ -13,7 +13,7 @@ Use this skill when a user asks an AI agent to install or operate the Intake Ski
 Install this repo for me: https://github.com/grapeot/intake-skill
 ```
 
-The job is complete only after the repo is cloned as a project-local skill, the local CLI is installed, tests pass, real local ASR has been installed and verified, a sample audio file has gone through sync, MLX ASR, and Codex postprocessing end to end, the operator has been shown where the output files are, and the operator has made an explicit choice about the optional nightly automatic run.
+The job is complete only after the repo is cloned as a project-local skill, the local CLI is installed, tests pass, real local ASR has been installed and verified, a sample audio file has gone through sync, MLX Qwen3 ASR, and Codex postprocessing end to end, the operator has been shown where the output files are, and the operator has made an explicit choice about the optional nightly automatic run.
 
 When talking to the operator, keep the cognitive burden low. Prefer phrases like "nightly automatic run", "runs every night", or "daily background run" instead of leading with terms such as "cron", "cron job", or "crontab". Use the technical terms only when showing exact commands, errors, or backup files. Explain setup as: "I can set this up to run once every night while your Mac is awake."
 
@@ -21,7 +21,7 @@ When talking to the operator, keep the cognitive burden low. Prefer phrases like
 
 Intake Skill is Voice Memos only. It reads files that Apple Voice Memos has already synced to the Mac. Do not add microphone recording, non-Voice-Memos sources, speaker recognition, diarization, reference voices, or participant attribution.
 
-Mock engines are retained for unit tests and explicit offline debugging. Functional setup and operation should use MLX ASR and Codex postprocessing by default. Before processing real Voice Memos, verify Codex with a trivial non-private prompt and validate Codex postprocessing on synthetic sample audio.
+Mock engines are retained for unit tests and explicit offline debugging. Functional setup and operation should use MLX Qwen3 ASR and Codex postprocessing by default. Before processing real Voice Memos, verify Codex with a trivial non-private prompt and validate Codex postprocessing on synthetic sample audio.
 
 ## Install from GitHub
 
@@ -66,19 +66,19 @@ If this path is absent or empty, do not invent another intake source. Open Voice
 
 ## Install and Verify Real ASR
 
-The mock engine is useful for offline tests, but initial setup must verify the real ASR path before declaring installation complete. Install MLX ASR dependencies inside the repo venv:
+The mock engine is useful for offline tests, but initial setup must verify the real ASR path before declaring installation complete. Install MLX Qwen3 ASR dependencies inside the repo venv:
 
 ```bash
 source .venv/bin/activate
-uv pip install mlx-whisper
-python -c "import mlx_whisper; print('mlx-whisper import ok')"
+uv pip install mlx-qwen3-asr
+python -c "import mlx_qwen3_asr; print('mlx-qwen3-asr import ok')"
 ```
 
-Then force the model download and execution path by running ASR on a non-private sample through `--engine mlx`. The current CLI calls `mlx_whisper.transcribe()` with its configured default model. A successful run should download or initialize the default MLX Whisper model and produce a non-empty `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns.
+Then force the model download and execution path by running ASR on a non-private sample through `--engine mlx`. The current CLI calls `mlx_qwen3_asr.transcribe()` with the explicit `Qwen/Qwen3-ASR-1.7B` model. A successful run should download or initialize that local Qwen ASR model and produce a non-empty `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns.
 
 Before running this step, tell the user in plain language that the first transcription may take a while because the speech model may need to download or warm up locally. Do not make that pause sound like a failure.
 
-If the Mac, Python version, package resolver, or network cannot install `mlx-whisper`, or if the model cannot download or execute, mark setup blocked. Include the exact command, exit code, and error text. Do not declare setup complete based on mock engines.
+If the Mac, Python version, package resolver, or network cannot install `mlx-qwen3-asr`, or if the model cannot download or execute, mark setup blocked. Include the exact command, exit code, and error text. Do not declare setup complete based on mock engines.
 
 ## Sample Audio End-to-End Validation
 
@@ -115,7 +115,7 @@ Open the CSV and confirm the header is exactly `speaker,content` and at least on
 open "$VALIDATION_DATA/$VALIDATION_DAY"
 ```
 
-If opening Finder fails, continue and give the user the path. If the user asks for a mock-only smoke test as a separate development check, run `run-day` with `--asr-engine mock --postprocess-engine mock`, but keep real MLX ASR and Codex postprocessing as the setup gate.
+If opening Finder fails, continue and give the user the path. If the user asks for a mock-only smoke test as a separate development check, run `run-day` with `--asr-engine mock --postprocess-engine mock`, but keep real MLX Qwen3 ASR and Codex postprocessing as the setup gate.
 
 ## Validate Codex During Setup
 
@@ -196,7 +196,7 @@ Install it with the user's normal package manager, then rerun `doctor`. Without 
 
 ### MLX install or model download fails
 
-Rerun `source .venv/bin/activate`, `uv pip install mlx-whisper`, and the `python -c "import mlx_whisper"` check. Then rerun ASR on the synthetic sample. If package install, import, model download, or transcribe fails, setup is blocked. Report the exact failing command and error text.
+Rerun `source .venv/bin/activate`, `uv pip install mlx-qwen3-asr`, and the `python -c "import mlx_qwen3_asr"` check. Then rerun ASR on the synthetic sample. If package install, import, model download, or transcribe fails, setup is blocked. Report the exact failing command and error text.
 
 ### ASR CSV missing or wrong schema
 
