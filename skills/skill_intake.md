@@ -33,7 +33,7 @@ git clone https://github.com/grapeot/intake-skill.git skills/intake-skill
 cd skills/intake-skill
 uv venv .venv
 source .venv/bin/activate
-uv pip install -e '.[dev]'
+uv pip install -e '.[dev,qwen-asr]'
 python -m pytest -q
 python -m intake_skill --help
 ```
@@ -70,7 +70,6 @@ The mock engine is useful for offline tests, but initial setup must verify the r
 
 ```bash
 source .venv/bin/activate
-uv pip install mlx-qwen3-asr
 python -c "import mlx_qwen3_asr; print('mlx-qwen3-asr import ok')"
 ```
 
@@ -86,15 +85,30 @@ Use synthetic audio with no private content. This validates the same file contra
 
 ```bash
 source .venv/bin/activate
-VALIDATION_DAY=$(date +%Y%m%d)
-VALIDATION_ROOT="tmp/intake_validation_$(date +%Y%m%d_%H%M%S)"
-VALIDATION_SOURCE="$VALIDATION_ROOT/source"
-VALIDATION_DATA="$VALIDATION_ROOT/data"
+export VALIDATION_DAY=$(date +%Y%m%d)
+export VALIDATION_ROOT="tmp/intake_validation_$(date +%Y%m%d_%H%M%S)"
+export VALIDATION_SOURCE="$VALIDATION_ROOT/source"
+export VALIDATION_DATA="$VALIDATION_ROOT/data"
 mkdir -p "$VALIDATION_SOURCE" "$VALIDATION_DATA"
 python -m intake_skill make-sample-audio --output "$VALIDATION_SOURCE/sample.m4a" --seconds 3
 python -m intake_skill sync --source "$VALIDATION_SOURCE" --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --dry-run
 python -m intake_skill sync --source "$VALIDATION_SOURCE" --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY"
 python -m intake_skill asr --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine mlx
+python - <<'PY'
+import csv
+import os
+from pathlib import Path
+
+data_dir = Path(os.environ["VALIDATION_DATA"])
+day = os.environ["VALIDATION_DAY"]
+transcript = data_dir / day / f"transcript_{day}.csv"
+with transcript.open(newline="", encoding="utf-8") as handle:
+    reader = csv.DictReader(handle)
+    rows = list(reader)
+assert reader.fieldnames == ["speaker", "content"]
+assert rows and any((row.get("content") or "").strip() for row in rows)
+print(f"ASR transcript ok: {transcript}")
+PY
 codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"
 python -m intake_skill postprocess --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine codex
 ```
@@ -109,7 +123,7 @@ Verify these artifacts exist and contain expected content:
 - `$VALIDATION_DATA/YYYYMMDD/daily_YYYYMMDD.html`
 - `$VALIDATION_DATA/YYYYMMDD/meetings/*.md`
 
-Open the CSV and confirm the header is exactly `speaker,content` and at least one `content` cell is non-empty. Open the Markdown and HTML reports and confirm they reflect the sample transcript. After validation succeeds, tell the user the exact output directory and, on macOS, open it in Finder when possible:
+The inline Python check is part of the setup gate. Do not rely only on the ASR command exit code; confirm that the generated CSV path exists, the header is exactly `speaker,content`, and at least one `content` cell is non-empty. If you inspect the CSV in a separate shell later, use the exact `output_path` printed by the ASR JSON or re-export `VALIDATION_DATA` and `VALIDATION_DAY` first. Open the Markdown and HTML reports and confirm they reflect the sample transcript. After validation succeeds, tell the user the exact output directory and, on macOS, open it in Finder when possible:
 
 ```bash
 open "$VALIDATION_DATA/$VALIDATION_DAY"

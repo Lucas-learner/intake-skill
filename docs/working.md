@@ -8,6 +8,7 @@
 - Kept the public CLI contract as `--engine mlx` / `--asr-engine mlx`, while updating runtime docs, installer prompts, README, PRD, RFC, and test plan to describe MLX Qwen3 ASR.
 - Added offline test coverage that monkeypatches the Qwen module, verifies the exact transcribe call shape, and confirms chunk text is written to the existing `speaker,content` CSV contract.
 - Validation update: `uv lock` refreshed the optional Qwen ASR dependency graph; `python -m pytest -q` passed with 28 tests; LSP diagnostics were clean for changed Python files; CLI manual QA covered `python -m intake_skill --help`.
+- Live validation update: installed `.[dev,qwen-asr]`, generated synthetic `.m4a` audio, ran `sync`, ran real `asr --engine mlx`, triggered Qwen model initialization, and verified the generated transcript CSV contained `This is synthetic sample audio for intake skill.`.
 
 ### 2026-05-12
 
@@ -36,3 +37,4 @@
 - A human-facing README should stop before operational detail; the AI-facing skill file is the right place for install gates, validation commands, artifact contracts, and concrete debugging branches.
 - Monitoring needs a single human-facing surface. Cron, logs, data files, and process state are separate Unix primitives, so a small read-only dashboard reduces operator cognitive load without adding a resident background worker.
 - The `mlx` engine name is a local-backend contract, not a model-family contract. Keep it stable while changing the concrete ASR library underneath.
+- Live ASR validation needs an artifact check, not just a successful process exit. Keep transcript inspection in the same shell as the validation variables, or use the exact `output_path` printed by the ASR JSON.
