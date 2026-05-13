@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any, cast
 
 
+QWEN_ASR_MODEL = "Qwen/Qwen3-ASR-1.7B"
+
+
 def day_dir(data_dir: Path, day: str) -> Path:
     return data_dir / day
 
@@ -44,22 +47,34 @@ def run_mock_asr(data_dir: Path, day: str, mock_text: str | None = None) -> dict
 
 def run_mlx_asr(data_dir: Path, day: str) -> dict[str, object]:
     try:
-        mlx_whisper = importlib.import_module("mlx_whisper")
+        mlx_qwen3_asr = importlib.import_module("mlx_qwen3_asr")
     except ImportError as exc:
-        raise RuntimeError("mlx engine requires mlx-whisper to be installed in this environment") from exc
+        raise RuntimeError("mlx engine requires mlx-qwen3-asr to be installed in this environment") from exc
 
     rows: list[dict[str, str]] = []
     for path in audio_files_for_day(data_dir, day):
-        transcribe = cast(Any, mlx_whisper).transcribe
-        result = cast(dict[str, object], transcribe(str(path)))
-        rows.append({"speaker": "", "content": str(result.get("text", "")).strip()})
+        transcribe = cast(Any, mlx_qwen3_asr).transcribe
+        result = transcribe(
+            str(path),
+            model=QWEN_ASR_MODEL,
+            verbose=False,
+            return_timestamps=False,
+            return_chunks=True,
+        )
+        chunks = cast(list[dict[str, object]], getattr(result, "chunks", None) or [])
+        for chunk in chunks:
+            text = str(chunk.get("text", "")).strip()
+            if text:
+                rows.append({"speaker": "", "content": text})
     output = transcript_path(data_dir, day)
     write_transcript(rows, output)
     return {
         "command": "asr",
         "engine": "mlx",
+        "model": QWEN_ASR_MODEL,
         "day": day,
-        "audio_count": len(rows),
+        "audio_count": len(audio_files_for_day(data_dir, day)),
+        "row_count": len(rows),
         "output_path": str(output),
         "output_dir": str(output.parent),
         "user_note": "The first real transcription can take a little while because the local speech model may need to download or warm up.",

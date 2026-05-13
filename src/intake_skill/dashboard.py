@@ -97,7 +97,7 @@ def _next_daily_run(hour: int, minute: int, now: datetime | None = None) -> str:
 
 def _current_processes() -> list[dict[str, str]]:
     try:
-        result = subprocess.run(["pgrep", "-fl", "intake_skill (run-day|asr|postprocess)|codex exec|mlx_whisper"], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(["pgrep", "-fl", "intake_skill (run-day|asr|postprocess)|codex exec|mlx_qwen3_asr"], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     except OSError:
         return []
     processes: list[dict[str, str]] = []

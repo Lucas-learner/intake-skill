@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import csv
 import importlib
+from types import SimpleNamespace
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 
 class AsrModule(Protocol):
+    importlib: Any
+    QWEN_ASR_MODEL: str
+
     def run_asr(self, data_dir: Path, day: str, engine: str = "mock", mock_text: str | None = None) -> dict[str, object]: ...
 
 
@@ -58,6 +62,47 @@ def test_mock_asr_accepts_installer_controlled_text(tmp_path: Path) -> None:
     with Path(str(summary["output_path"])).open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert rows == [{"speaker": "", "content": "Installer validation transcript."}]
+
+
+def test_mlx_asr_uses_qwen3_model_and_chunk_text(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    day = "20260512"
+    day_dir = tmp_path / day
+    day_dir.mkdir()
+    audio = day_dir / "20260512_0930_watch.m4a"
+    _ = audio.write_bytes(b"fake-audio")
+    captured: dict[str, object] = {}
+
+    def fake_transcribe(path: str, **kwargs: object) -> object:
+        captured["path"] = path
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(chunks=[{"text": " first qwen segment "}, {"text": "second qwen segment"}])
+
+    def fake_import_module(name: str) -> object:
+        assert name == "mlx_qwen3_asr"
+        return SimpleNamespace(transcribe=fake_transcribe)
+
+    monkeypatch.setattr(asr.importlib, "import_module", fake_import_module)
+
+    summary = asr.run_asr(tmp_path, day, engine="mlx")
+
+    assert summary["engine"] == "mlx"
+    assert summary["model"] == asr.QWEN_ASR_MODEL
+    assert summary["audio_count"] == 1
+    assert summary["row_count"] == 2
+    assert captured["path"] == str(audio)
+    assert captured["kwargs"] == {
+        "model": "Qwen/Qwen3-ASR-1.7B",
+        "verbose": False,
+        "return_timestamps": False,
+        "return_chunks": True,
+    }
+
+    with Path(str(summary["output_path"])).open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows == [
+        {"speaker": "", "content": "first qwen segment"},
+        {"speaker": "", "content": "second qwen segment"},
+    ]
 
 
 def test_mock_postprocess_writes_daily_html_and_meetings(tmp_path: Path) -> None:
