@@ -10,13 +10,13 @@ Every stage writes plain files under `data/YYYYMMDD/`. Sync produces normalized 
 
 ## Decision 3: Mock Engines Are Wiring Checks, Not Setup Completion
 
-Mock ASR and mock postprocessing are explicit test/debug engines. They are useful for unit tests and deterministic offline checks, while the default installer and functional paths validate real MLX ASR and Codex postprocessing on synthetic sample audio. `--mock-text` gives tests deterministic transcript content while preserving the exact `speaker,content` CSV contract.
+Mock ASR and mock postprocessing are explicit test/debug engines. They are useful for unit tests and deterministic offline checks, while the default installer and functional paths validate real MLX Qwen3 ASR and Codex postprocessing on synthetic sample audio. `--mock-text` gives tests deterministic transcript content while preserving the exact `speaker,content` CSV contract.
 
-Initial setup requires real ASR validation. The AI-facing install playbook instructs the installer to install `mlx-whisper`, force the local model download by transcribing synthetic sample audio, run Codex postprocessing, and block setup with an exact reason if the target Mac cannot complete that path.
+Initial setup requires real ASR validation. The AI-facing install playbook instructs the installer to install `mlx-qwen3-asr`, force the `Qwen/Qwen3-ASR-1.7B` model download by transcribing synthetic sample audio, run Codex postprocessing, and block setup with an exact reason if the target Mac cannot complete that path.
 
 ## Decision 4: Optional Live Engines
 
-MLX ASR and Codex postprocessing are runtime integrations. They are loaded dynamically or invoked through subprocesses, which keeps base package installation lightweight. Codex mode uses file-response prompting: the CLI reads `prompts/codex_postprocess.md`, combines it with concrete input and output paths, and adds prompt-injection guardrails that treat transcript content as untrusted source data. The Codex subprocess does not pass a model flag, so the local Codex CLI uses the user's configured default model.
+MLX Qwen3 ASR and Codex postprocessing are runtime integrations. They are loaded dynamically or invoked through subprocesses, which keeps base package installation lightweight. Codex mode uses file-response prompting: the CLI reads `prompts/codex_postprocess.md`, combines it with concrete input and output paths, and adds prompt-injection guardrails that treat transcript content as untrusted source data. The Codex subprocess does not pass a model flag, so the local Codex CLI uses the user's configured default model.
 
 ## Decision 5: Cron Appends, Never Replaces
 
