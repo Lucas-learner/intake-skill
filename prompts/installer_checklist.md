@@ -14,13 +14,13 @@ python -m pytest -q
 python -m intake_skill doctor
 ```
 
-Then install and verify real local ASR before declaring setup complete. This must force the default MLX Whisper model download and execution path:
+Then install and verify real local ASR before declaring setup complete. This must force the `Qwen/Qwen3-ASR-1.7B` model download and execution path:
 
 Before running the ASR command, tell the user: "This first transcription may take a little while because it may need to download or warm up the local speech model."
 
 ```bash
-uv pip install mlx-whisper
-python -c "import mlx_whisper; print('mlx-whisper import ok')"
+uv pip install mlx-qwen3-asr
+python -c "import mlx_qwen3_asr; print('mlx-qwen3-asr import ok')"
 VALIDATION_DAY=$(date +%Y%m%d)
 VALIDATION_ROOT="tmp/intake_validation_$(date +%Y%m%d_%H%M%S)"
 VALIDATION_SOURCE="$VALIDATION_ROOT/source"

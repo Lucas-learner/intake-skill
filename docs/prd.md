@@ -12,11 +12,11 @@ The direct user is an AI coding or operations agent that needs a stable terminal
 
 ## Requirements
 
-The CLI must expose `doctor`, `sync`, `asr`, `postprocess`, `run-day`, `install-cron`, and `make-sample-audio`. Commands should print JSON summaries. The normal installation path validates synthetic sample audio end to end through real MLX ASR and Codex postprocessing before touching real Voice Memos.
+The CLI must expose `doctor`, `sync`, `asr`, `postprocess`, `run-day`, `install-cron`, and `make-sample-audio`. Commands should print JSON summaries. The normal installation path validates synthetic sample audio end to end through real MLX Qwen3 ASR and Codex postprocessing before touching real Voice Memos.
 
 Sync is Voice Memos only. The default source is `~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/`. It discovers `.qta` and `.m4a` files and writes them to `data/YYYYMMDD/YYYYMMDD_HHMM_watch.m4a`. Repeated runs must skip existing outputs rather than overwrite them.
 
-ASR writes `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns. There is no speaker recognition. Mock ASR must work offline. First-run setup must also verify the real MLX ASR path by installing `mlx-whisper`, downloading or initializing the local model through a synthetic sample transcription, and confirming the transcript CSV contract. If the target Mac cannot complete that path, setup should be marked blocked with the exact reason.
+ASR writes `transcript_YYYYMMDD.csv` with exactly `speaker,content` columns. There is no speaker recognition. Mock ASR must work offline. First-run setup must also verify the real MLX Qwen3 ASR path by installing `mlx-qwen3-asr`, downloading or initializing `Qwen/Qwen3-ASR-1.7B` through a synthetic sample transcription, and confirming the transcript CSV contract. If the target Mac cannot complete that path, setup should be marked blocked with the exact reason.
 
 Postprocessing supports `codex` as the functional summarization path and keeps `mock` for unit tests and explicit offline debugging. Codex mode is the default summarization path and calls the operator's configured Codex CLI through `codex exec --full-auto -c model_reasoning_effort=low`. The CLI must not pass a hardcoded Codex model flag, so Codex uses the user's configured default model.
 
@@ -24,7 +24,7 @@ Cron installation must back up the current crontab and append one midnight line 
 
 ## Success Criteria
 
-`uv pip install -e '.[dev]'` and `python -m pytest -q` run offline from a clean checkout with cached packaging tools. `doctor`, `sync --dry-run`, mock ASR, mock postprocess, and mock `run-day` can be exercised without private Voice Memos data. Installer agents additionally validate real MLX ASR on synthetic sample audio before declaring setup complete.
+`uv pip install -e '.[dev]'` and `python -m pytest -q` run offline from a clean checkout with cached packaging tools. `doctor`, `sync --dry-run`, mock ASR, mock postprocess, and mock `run-day` can be exercised without private Voice Memos data. Installer agents additionally validate real MLX Qwen3 ASR on synthetic sample audio before declaring setup complete.
 
 ## Non-Goals
 

@@ -8,7 +8,7 @@ This repo is meant to be installed by an AI agent as a project-local skill, not 
 https://github.com/grapeot/intake-skill
 ```
 
-Ask it: "Install this repo for me: https://github.com/grapeot/intake-skill". The agent should clone the repo under the current folder, normally at `skills/intake-skill`, install Python dependencies, install `mlx-whisper`, tell the user that the first speech-model download may take a little while, transcribe synthetic sample audio, run sync, ASR, and Codex postprocessing end to end, show where the sample outputs were written, and then explain the optional nightly automatic run in plain language.
+Ask it: "Install this repo for me: https://github.com/grapeot/intake-skill". The agent should clone the repo under the current folder, normally at `skills/intake-skill`, install Python dependencies, install `mlx-qwen3-asr`, tell the user that the first speech-model download may take a little while, transcribe synthetic sample audio, run sync, ASR, and Codex postprocessing end to end, show where the sample outputs were written, and then explain the optional nightly automatic run in plain language.
 
 The detailed installer and operating guide lives in [`skills/skill_intake.md`](skills/skill_intake.md). Human readers normally do not need to run commands from this README; the skill file contains the exact playbook an AI agent should follow.
 
@@ -23,7 +23,7 @@ The runtime pipeline is:
 ```text
 Apple Voice Memos synced to this Mac
   -> sync local audio into data/YYYYMMDD/
-  -> transcribe with MLX Whisper
+  -> transcribe with MLX Qwen3 ASR
   -> generate daily Markdown, HTML, and meeting notes with Codex
 ```
 
@@ -54,7 +54,7 @@ data/YYYYMMDD/
 
 ## Runtime Boundary
 
-MLX ASR is intended to run locally after `mlx-whisper` and its model are installed. Codex postprocessing is the default AI summarization path for this workflow and uses the operator's configured local Codex CLI. Installer agents should validate Codex postprocessing on synthetic sample audio during setup.
+MLX Qwen3 ASR is intended to run locally after `mlx-qwen3-asr` and the `Qwen/Qwen3-ASR-1.7B` model are installed. Codex postprocessing is the default AI summarization path for this workflow and uses the operator's configured local Codex CLI. Installer agents should validate Codex postprocessing on synthetic sample audio during setup.
 
 The nightly automatic run is optional and should be enabled only after the operator confirms it. If enabled, the Mac must stay awake at the scheduled time, remain plugged in or otherwise powered, and Voice Memos must keep syncing often enough for new recordings to appear locally.
 
@@ -73,7 +73,7 @@ python -m intake_skill dashboard
 The dashboard binds to `127.0.0.1:8765` by default. It is a local control surface for understanding how the pieces fit together:
 
 - cron installation state, configured daily run time, and next scheduled run
-- whether an intake, MLX ASR, or Codex postprocess process is currently running
+- whether an intake, MLX Qwen3 ASR, or Codex postprocess process is currently running
 - today's Voice Memos sync queue, including copy, convert, and skip actions
 - recent processed days, audio counts, total audio duration, transcript rows and characters, generated report text, and report availability
 - key local paths for source Voice Memos, generated data, and logs

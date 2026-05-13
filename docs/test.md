@@ -17,7 +17,7 @@ Covered areas:
 
 ## Manual Validation
 
-Run these commands from the repo root after installation. Unit tests may use mock engines for deterministic local assertions; the first-run setup guide in `skills/skill_intake.md` requires the sample to pass through real MLX ASR and Codex postprocessing before setup is complete.
+Run these commands from the repo root after installation. Unit tests may use mock engines for deterministic local assertions; the first-run setup guide in `skills/skill_intake.md` requires the sample to pass through real MLX Qwen3 ASR and Codex postprocessing before setup is complete.
 
 ```bash
 python -m intake_skill --help
@@ -30,7 +30,7 @@ python -m intake_skill run-day --source examples/sample_audio --data-dir tmp/val
 
 The end-to-end mock validation should copy one sample `.m4a` into `tmp/validation_data/20260512/`, write `transcript_20260512.csv`, then write `daily_20260512.md`, `daily_20260512.html`, and `meetings/meeting_20260512.md`. If the sample file timestamp is different from `20260512`, update the command date to the sample file's modification day before running the validation.
 
-For setup validation, install `mlx-whisper` in the venv, generate a non-private `.m4a` sample, sync it or place it under `tmp/validation_data/YYYYMMDD/`, run `python -m intake_skill asr --data-dir tmp/validation_data --date YYYYMMDD --engine mlx`, and verify the CSV has exactly `speaker,content` columns with non-empty content. This run must force the MLX Whisper model download and execution path. If MLX cannot install, download its model, or transcribe the sample on the target Mac, setup is blocked and the exact failing command should be recorded.
+For setup validation, install `mlx-qwen3-asr` in the venv, generate a non-private `.m4a` sample, sync it or place it under `tmp/validation_data/YYYYMMDD/`, run `python -m intake_skill asr --data-dir tmp/validation_data --date YYYYMMDD --engine mlx`, and verify the CSV has exactly `speaker,content` columns with non-empty content. This run must force the `Qwen/Qwen3-ASR-1.7B` model download and execution path. If MLX Qwen3 ASR cannot install, download its model, or transcribe the sample on the target Mac, setup is blocked and the exact failing command should be recorded.
 
 During setup, run a trivial non-private prompt through the user's configured Codex CLI:
 
@@ -44,4 +44,4 @@ For live Voice Memos use, run `sync --dry-run` first and inspect the planned des
 
 ## Integration Notes
 
-No live integration tests are enabled by default. MLX ASR depends on operator-installed `mlx-whisper` and a locally downloaded model. Codex postprocessing depends on a configured `codex` CLI. Offline tests validate the Codex prompt text, driver prompt, and command construction without invoking Codex.
+No live integration tests are enabled by default. MLX Qwen3 ASR depends on operator-installed `mlx-qwen3-asr` and a locally downloaded `Qwen/Qwen3-ASR-1.7B` model. Codex postprocessing depends on a configured `codex` CLI. Offline tests validate the Qwen ASR call shape, Codex prompt text, driver prompt, and command construction without invoking live integrations.

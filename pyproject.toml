@@ -1,7 +1,7 @@
 [project]
 name = "intake-skill"
 version = "0.1.0"
-description = "Agent-oriented Voice Memos intake CLI with sync, mock ASR, and daily postprocessing"
+description = "Agent-oriented Voice Memos intake CLI with sync, Qwen ASR, and daily postprocessing"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -10,6 +10,9 @@ dependencies = []
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0,<9",
+]
+qwen-asr = [
+    "mlx-qwen3-asr>=0.3.2",
 ]
 
 [project.scripts]
