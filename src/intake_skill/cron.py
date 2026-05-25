@@ -34,7 +34,7 @@ def cron_line(repo_root: Path, hour: int = 0, minute: int = 0) -> str:
         f"PATH={shlex.quote(CRON_PATH)}; "
         f"cd {shlex.quote(str(repo_root))} && "
         f"{shlex.quote(str(python_path))} -m intake_skill run-day "
-        "--asr-engine mlx --postprocess-engine codex "
+        "--asr-engine mlx --postprocess-engine kimi "
         f">> {shlex.quote(str(log_path))} 2>&1 "
         f"{CRON_MARKER}"
     )
