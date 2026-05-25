@@ -112,12 +112,14 @@ def build_kimi_prompt(data_dir: Path, day: str, template_path: Path | None = Non
     transcript_text = transcript.read_text(encoding="utf-8")
     
     # Truncate very long transcripts to avoid API timeout
-    # Keep first ~8000 chars + last ~2000 chars for action items at the end
+    # Strategy: keep beginning (context + key info) + end (action items + summary)
     MAX_CHARS = 10000
     if len(transcript_text) > MAX_CHARS:
-        head = transcript_text[:8000]
-        tail = transcript_text[-2000:]
-        transcript_text = f"{head}\n\n...[中间内容省略，共{len(transcript_text)}字符]...\n\n{tail}"
+        head_size = 6000  # First 60%: opening context, introductions, main discussion
+        tail_size = 4000  # Last 40%: conclusions, action items, next steps
+        head = transcript_text[:head_size]
+        tail = transcript_text[-tail_size:]
+        transcript_text = f"{head}\n\n...[中间内容已省略，原文共 {len(transcript_text)} 字符，保留开头 {head_size} + 结尾 {tail_size} 字符]...\n\n{tail}"
     
     return "\n".join(
         [

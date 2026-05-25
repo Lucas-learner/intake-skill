@@ -36,6 +36,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"intake-skill {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    # Quick alias: "intake today" == "run-day --date $(date +%Y%m%d)"
+    today_cmd = subparsers.add_parser("today", help="Process today's Voice Memos (sync + ASR + postprocess)")
+    add_common_paths(today_cmd)
+    today_cmd.add_argument("--asr-engine", choices=["mock", "mlx"], default="mlx")
+    today_cmd.add_argument("--postprocess-engine", choices=["mock", "codex", "kimi"], default="kimi")
+
+    # Quick alias: "intake dash" == "dashboard"
+    dash = subparsers.add_parser("dash", help="Open local dashboard (alias for dashboard)")
+    add_common_paths(dash)
+    dash.add_argument("--host", default="127.0.0.1", help="Dashboard bind host")
+    dash.add_argument("--port", type=int, default=8765, help="Dashboard port")
+
     doctor = subparsers.add_parser("doctor", help="Check local environment and paths")
     add_common_paths(doctor)
 
@@ -116,11 +128,20 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         asr_summary = run_asr(config.data_dir, args.date, engine=args.asr_engine, mock_text=args.mock_text)
         post_summary = run_postprocess(config.data_dir, args.date, engine=args.postprocess_engine)
         return {"command": "run-day", "day": args.date, "steps": [sync_summary, asr_summary, post_summary]}
+    if args.command == "today":
+        day = today()
+        sync_summary = sync_voice_memos(config.source_dir, config.data_dir, day=day)
+        asr_summary = run_asr(config.data_dir, day, engine=args.asr_engine)
+        post_summary = run_postprocess(config.data_dir, day, engine=args.postprocess_engine)
+        return {"command": "today", "day": day, "steps": [sync_summary, asr_summary, post_summary]}
     if args.command == "install-cron":
         return append_cron(config.repo_root, dry_run=args.dry_run)
     if args.command == "dashboard":
         server = serve_dashboard(args.host, args.port, config=config)
         return {"command": "dashboard", "url": server.url}
+    if args.command == "dash":
+        server = serve_dashboard(args.host, args.port, config=config)
+        return {"command": "dash", "url": server.url}
     if args.command == "make-sample-audio":
         return make_sample_audio(Path(args.output).expanduser().resolve(), seconds=args.seconds)
     raise ValueError(f"unsupported command: {args.command}")

@@ -61,8 +61,35 @@ def run_mlx_asr(data_dir: Path, day: str) -> dict[str, object]:
     rows: list[dict[str, str]] = []
     files = audio_files_for_day(data_dir, day)
     total_files = len(files)
+    skipped_files = 0
+    
+    # Check for existing transcript and skip if all audio files are older
+    output = transcript_path(data_dir, day)
+    if output.exists() and files:
+        transcript_mtime = output.stat().st_mtime
+        all_older = all(path.stat().st_mtime <= transcript_mtime for path in files)
+        if all_older:
+            print(f"[ASR] Skipping: transcript exists and all audio files are older", file=sys.stderr)
+            return {
+                "command": "asr",
+                "engine": "mlx",
+                "model": QWEN_ASR_MODEL,
+                "day": day,
+                "audio_count": total_files,
+                "skipped": total_files,
+                "row_count": 0,
+                "output_path": str(output),
+                "output_dir": str(output.parent),
+                "user_note": "Skipped: transcript already exists and is newer than all audio files.",
+            }
     
     for idx, path in enumerate(files, 1):
+        # Skip individual files if transcript exists and is newer
+        if output.exists() and path.stat().st_mtime <= output.stat().st_mtime:
+            print(f"[ASR] Skipping {idx}/{total_files}: {path.name} (older than existing transcript)", file=sys.stderr)
+            skipped_files += 1
+            continue
+        
         print(f"[ASR] Processing {idx}/{total_files}: {path.name}", file=sys.stderr)
         transcribe = cast(Any, mlx_qwen3_asr).transcribe
         result = transcribe(
@@ -91,6 +118,7 @@ def run_mlx_asr(data_dir: Path, day: str) -> dict[str, object]:
         "model": QWEN_ASR_MODEL,
         "day": day,
         "audio_count": total_files,
+        "skipped": skipped_files,
         "row_count": len(rows),
         "output_path": str(output),
         "output_dir": str(output.parent),
