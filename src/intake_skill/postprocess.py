@@ -110,6 +110,15 @@ def build_kimi_prompt(data_dir: Path, day: str, template_path: Path | None = Non
     transcript = directory / f"transcript_{day}.csv"
     template = load_codex_prompt_template(template_path)
     transcript_text = transcript.read_text(encoding="utf-8")
+    
+    # Truncate very long transcripts to avoid API timeout
+    # Keep first ~8000 chars + last ~2000 chars for action items at the end
+    MAX_CHARS = 10000
+    if len(transcript_text) > MAX_CHARS:
+        head = transcript_text[:8000]
+        tail = transcript_text[-2000:]
+        transcript_text = f"{head}\n\n...[中间内容省略，共{len(transcript_text)}字符]...\n\n{tail}"
+    
     return "\n".join(
         [
             "You are an AI assistant helping with a personal intake workflow.",
@@ -144,6 +153,7 @@ def build_kimi_prompt(data_dir: Path, day: str, template_path: Path | None = Non
             "- Do not infer speaker identity or perform diarization.",
             "- Do not invent facts, participants, decisions, or action items absent from the transcript.",
             "- The HTML should be simple, self-contained, and faithfully represent the Markdown content.",
+            "- ALL output must be in Chinese (中文).",
         ]
     )
 

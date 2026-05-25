@@ -23,12 +23,31 @@ def recording_timestamp(path: Path) -> datetime:
     return datetime.fromtimestamp(path.stat().st_mtime)
 
 
+def _parse_filename_date(path: Path) -> datetime | None:
+    """Parse YYYYMMDD HHMMSS from Voice Memos filename like '20260522 100732-CF347703.m4a'."""
+    import re
+    match = re.match(r"(\d{8})\s+(\d{6})", path.name)
+    if match:
+        try:
+            return datetime.strptime(match.group(1) + match.group(2), "%Y%m%d%H%M%S")
+        except ValueError:
+            pass
+    return None
+
+
 def recording_day(path: Path) -> str:
+    filename_date = _parse_filename_date(path)
+    if filename_date:
+        return filename_date.strftime("%Y%m%d")
     return recording_timestamp(path).strftime("%Y%m%d")
 
 
 def destination_for(source: Path, data_dir: Path) -> Path:
-    stamp = recording_timestamp(source)
+    filename_date = _parse_filename_date(source)
+    if filename_date:
+        stamp = filename_date
+    else:
+        stamp = recording_timestamp(source)
     day = stamp.strftime("%Y%m%d")
     name = f"{stamp.strftime('%Y%m%d_%H%M')}_watch.m4a"
     return data_dir / day / name

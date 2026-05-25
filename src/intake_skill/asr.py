@@ -45,14 +45,25 @@ def run_mock_asr(data_dir: Path, day: str, mock_text: str | None = None) -> dict
     return {"command": "asr", "engine": "mock", "day": day, "audio_count": len(files), "output_path": str(output), "output_dir": str(output.parent)}
 
 
+def _format_duration(seconds: float) -> str:
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
+    return f"{minutes}:{secs:02d}"
+
+
 def run_mlx_asr(data_dir: Path, day: str) -> dict[str, object]:
+    import sys
     try:
         mlx_qwen3_asr = importlib.import_module("mlx_qwen3_asr")
     except ImportError as exc:
         raise RuntimeError("mlx engine requires mlx-qwen3-asr to be installed in this environment") from exc
 
     rows: list[dict[str, str]] = []
-    for path in audio_files_for_day(data_dir, day):
+    files = audio_files_for_day(data_dir, day)
+    total_files = len(files)
+    
+    for idx, path in enumerate(files, 1):
+        print(f"[ASR] Processing {idx}/{total_files}: {path.name}", file=sys.stderr)
         transcribe = cast(Any, mlx_qwen3_asr).transcribe
         result = transcribe(
             str(path),
@@ -62,10 +73,16 @@ def run_mlx_asr(data_dir: Path, day: str) -> dict[str, object]:
             return_chunks=True,
         )
         chunks = cast(list[dict[str, object]], getattr(result, "chunks", None) or [])
-        for chunk in chunks:
+        chunk_count = len(chunks)
+        for chunk_idx, chunk in enumerate(chunks, 1):
             text = str(chunk.get("text", "")).strip()
             if text:
                 rows.append({"speaker": "", "content": text})
+            # Print progress for long files every 20 chunks
+            if chunk_count > 20 and chunk_idx % 20 == 0:
+                print(f"[ASR]   {path.name}: {chunk_idx}/{chunk_count} chunks...", file=sys.stderr)
+        print(f"[ASR] Completed {path.name}: {chunk_count} chunks, {len(rows)} total rows", file=sys.stderr)
+        
     output = transcript_path(data_dir, day)
     write_transcript(rows, output)
     return {
@@ -73,7 +90,7 @@ def run_mlx_asr(data_dir: Path, day: str) -> dict[str, object]:
         "engine": "mlx",
         "model": QWEN_ASR_MODEL,
         "day": day,
-        "audio_count": len(audio_files_for_day(data_dir, day)),
+        "audio_count": total_files,
         "row_count": len(rows),
         "output_path": str(output),
         "output_dir": str(output.parent),
