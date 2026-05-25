@@ -87,6 +87,39 @@ python -m intake_skill dash
 
 **安全提示**：不要将此仪表盘暴露到公网。
 
+## 快捷配置（推荐）
+
+在 `~/.zshrc` 中添加以下内容，之后无需手动 `cd` 和 `source .venv/bin/activate`：
+
+```bash
+# Intake Skill - 语音备忘录日报工具
+export INTAKE_ROOT="/Users/apple/projects/tools/intake-skill"
+
+alias intake='cd "$INTAKE_ROOT" && source .venv/bin/activate && python -m intake_skill'
+alias intoday='cd "$INTAKE_ROOT" && source .venv/bin/activate && python -m intake_skill today'
+alias indash='cd "$INTAKE_ROOT" && source .venv/bin/activate && python -m intake_skill dash'
+alias indoctor='cd "$INTAKE_ROOT" && source .venv/bin/activate && python -m intake_skill doctor'
+
+# 处理指定日期（用法: indate 20260522）
+indate() {
+    cd "$INTAKE_ROOT" && source .venv/bin/activate && python -m intake_skill run-day --date "$1" --asr-engine mlx --postprocess-engine kimi
+}
+
+# 预览指定日期同步（用法: indry 20260522）
+indry() {
+    cd "$INTAKE_ROOT" && source .venv/bin/activate && python -m intake_skill sync --date "$1" --dry-run
+}
+```
+
+添加后运行 `source ~/.zshrc` 即可使用：
+
+```bash
+intoday        # 处理今天
+indate 20260522  # 处理指定日期
+indash         # 打开仪表盘
+indry 20260522   # 预览同步
+```
+
 ## 环境要求
 
 - macOS（语音备忘录同步依赖）
