@@ -10,7 +10,7 @@ disable-model-invocation: true
 Use this skill when a user asks an AI agent to install or operate the Intake Skill repo. The expected user request is:
 
 ```text
-Install this repo for me: https://github.com/grapeot/intake-skill
+Install this repo for me: https://github.com/Lucas-learner/intake-skill
 ```
 
 The job is complete only after the repo is cloned as a project-local skill, the local CLI is installed, tests pass, real local ASR has been installed and verified, a sample audio file has gone through sync, MLX Qwen3 ASR, and Codex postprocessing end to end, the operator has been shown where the output files are, and the operator has made an explicit choice about the optional nightly automatic run.
@@ -29,7 +29,7 @@ Start in the user's current workspace and install this repo as a project-local s
 
 ```bash
 mkdir -p projects/tools
-git clone https://github.com/grapeot/intake-skill.git projects/tools/intake-skill
+git clone https://github.com/Lucas-learner/intake-skill.git projects/tools/intake-skill
 cd projects/tools/intake-skill
 uv venv .venv
 source .venv/bin/activate
