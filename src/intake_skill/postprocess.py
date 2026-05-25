@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 
 
@@ -110,22 +111,9 @@ def build_kimi_prompt(data_dir: Path, day: str, template_path: Path | None = Non
     transcript = directory / f"transcript_{day}.csv"
     template = load_codex_prompt_template(template_path)
     transcript_text = transcript.read_text(encoding="utf-8")
-    
-    # Truncate very long transcripts to avoid API timeout
-    # Strategy: keep beginning (context + key info) + end (action items + summary)
-    MAX_CHARS = 10000
-    if len(transcript_text) > MAX_CHARS:
-        head_size = 6000  # First 60%: opening context, introductions, main discussion
-        tail_size = 4000  # Last 40%: conclusions, action items, next steps
-        head = transcript_text[:head_size]
-        tail = transcript_text[-tail_size:]
-        transcript_text = f"{head}\n\n...[中间内容已省略，原文共 {len(transcript_text)} 字符，保留开头 {head_size} + 结尾 {tail_size} 字符]...\n\n{tail}"
-    
     return "\n".join(
         [
-            "You are an AI assistant helping with a personal intake workflow.",
-            "The user has provided a transcript CSV from Apple Voice Memos.",
-            "Your job is to generate structured output files based on the transcript.",
+            "你是一个 AI 助手，帮助整理语音备忘录。",
             "",
             "## Prompt Template",
             template.strip(),
@@ -189,14 +177,8 @@ def _resolve_kimi_api_key() -> str:
     )
 
 
-def run_kimi_postprocess(data_dir: Path, day: str) -> dict[str, object]:
+def _call_kimi_api(prompt: str, api_key: str, timeout: int = 600) -> str:
     import httpx
-
-    directory = data_dir / day
-    directory.mkdir(parents=True, exist_ok=True)
-
-    api_key = _resolve_kimi_api_key()
-    prompt = build_kimi_prompt(data_dir, day)
 
     response = httpx.post(
         "https://api.kimi.com/coding/v1/chat/completions",
@@ -208,17 +190,44 @@ def run_kimi_postprocess(data_dir: Path, day: str) -> dict[str, object]:
         json={
             "model": "kimi-latest",
             "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates structured intake reports from voice memo transcripts."},
+                {"role": "system", "content": "你是一个工作助手，帮助整理语音备忘录。"},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.3,
         },
-        timeout=300,
+        timeout=timeout,
     )
     response.raise_for_status()
     response_json = response.json()
     message = response_json["choices"][0]["message"]
-    response_text = message.get("content", "") or message.get("reasoning_content", "") or ""
+    return message.get("content", "") or message.get("reasoning_content", "") or ""
+
+
+def run_kimi_postprocess(data_dir: Path, day: str) -> dict[str, object]:
+    directory = data_dir / day
+    directory.mkdir(parents=True, exist_ok=True)
+
+    api_key = _resolve_kimi_api_key()
+    prompt = build_kimi_prompt(data_dir, day)
+
+    # Retry up to 3 times with exponential backoff
+    max_retries = 3
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"[Kimi] Generating report (attempt {attempt}/{max_retries})...")
+            response_text = _call_kimi_api(prompt, api_key, timeout=600)
+            break
+        except Exception as exc:
+            last_error = exc
+            print(f"[Kimi] Attempt {attempt} failed: {exc}")
+            if attempt < max_retries:
+                wait = 2 ** attempt
+                print(f"[Kimi] Retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise RuntimeError(f"Kimi postprocess failed after {max_retries} attempts: {last_error}") from last_error
+
     files = parse_kimi_response(response_text)
 
     outputs: list[str] = []
@@ -242,9 +251,8 @@ def run_kimi_postprocess(data_dir: Path, day: str) -> dict[str, object]:
         daily_html.write_text(files[html_key], encoding="utf-8")
         outputs.append(str(daily_html))
     else:
-        # Fallback: generate simple HTML from markdown
         md_content = files.get(md_key, "")
-        daily_html.write_text(markdown_to_html(md_content, f"Daily Intake {day}"), encoding="utf-8")
+        daily_html.write_text(markdown_to_html(md_content, f"日报 {day}"), encoding="utf-8")
         outputs.append(str(daily_html))
 
     if meeting_key in files:
@@ -254,9 +262,8 @@ def run_kimi_postprocess(data_dir: Path, day: str) -> dict[str, object]:
         (meetings_dir / f"no_meeting_{day}.md").write_text(files[no_meeting_key], encoding="utf-8")
         outputs.append(str(meetings_dir / f"no_meeting_{day}.md"))
     else:
-        # Fallback meeting note
         (meetings_dir / f"meeting_{day}.md").write_text(
-            f"# Meeting Notes {day}\n\nNo explicit meeting segment was detected in the transcript.\n", encoding="utf-8"
+            f"# 会议记录 {day}\n\n未检测到明显的会议类内容。\n", encoding="utf-8"
         )
         outputs.append(str(meetings_dir / f"meeting_{day}.md"))
 
