@@ -49,7 +49,49 @@ python -m intake_skill dash
 ## 使用模式
 
 - **手动模式**：需要时运行 `today` 或 `run-day` 处理最新录音
-- **定时模式**：安装 cron 后，每晚自动处理当天的录音
+- **定时模式**：安装 cron 后，每晚自动处理当天的录音（见下方 cron 配置）
+
+## 定时自动处理（cron）
+
+安装 cron 定时任务，每天午夜自动处理：
+
+```bash
+# 预览将要安装的内容
+python -m intake_skill install-cron --dry-run
+
+# 安装（备份现有 crontab，追加 intake 任务）
+python -m intake_skill install-cron
+```
+
+默认每天 **0:00** 执行，日志保存在 `logs/intake_cron.log`。
+
+### 前提条件
+
+- Mac 需保持开机（睡眠/休眠时不会执行）
+- 语音备忘录需完成 iCloud 同步
+
+### 查看日志
+
+```bash
+# 最近几次定时运行结果
+tail -50 logs/intake_cron.log
+
+# 实时跟踪
+tail -f logs/intake_cron.log
+```
+
+### 修改或取消
+
+```bash
+# 手动编辑 crontab 修改时间
+crontab -e
+
+# 找到并删除 intake_skill 那一行即可取消
+```
+
+### 多设备方案
+
+如果 MacBook 晚上会睡眠，建议把定时任务装在常驻的 **Mac mini** 上，MacBook 通过 iCloud 或 Tailscale 查看报告。
 
 ## 生成的文件
 
