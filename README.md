@@ -33,6 +33,7 @@ The main commands are:
 python -m intake_skill doctor
 python -m intake_skill sync --date YYYYMMDD --dry-run
 python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine codex
+python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine kimi  # Alternative: use Kimi AI
 python -m intake_skill dashboard
 ```
 
@@ -54,7 +55,7 @@ data/YYYYMMDD/
 
 ## Runtime Boundary
 
-MLX Qwen3 ASR is intended to run locally after `mlx-qwen3-asr` and the `Qwen/Qwen3-ASR-1.7B` model are installed. Codex postprocessing is the default AI summarization path for this workflow and uses the operator's configured local Codex CLI. Installer agents should validate Codex postprocessing on synthetic sample audio during setup.
+MLX Qwen3 ASR is intended to run locally after `mlx-qwen3-asr` and the `Qwen/Qwen3-ASR-1.7B` model are installed. Codex postprocessing is the default AI summarization path for this workflow and uses the operator's configured local Codex CLI. **Kimi postprocessing** is also supported as an alternative — it calls the Kimi API via `KIMI_API_KEY` and does not require Codex CLI. Installer agents should validate postprocessing on synthetic sample audio during setup.
 
 The nightly automatic run is optional and should be enabled only after the operator confirms it. If enabled, the Mac must stay awake at the scheduled time, remain plugged in or otherwise powered, and Voice Memos must keep syncing often enough for new recordings to appear locally.
 

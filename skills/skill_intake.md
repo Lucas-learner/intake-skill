@@ -21,7 +21,7 @@ When talking to the operator, keep the cognitive burden low. Prefer phrases like
 
 Intake Skill is Voice Memos only. It reads files that Apple Voice Memos has already synced to the Mac. Do not add microphone recording, non-Voice-Memos sources, speaker recognition, diarization, reference voices, or participant attribution.
 
-Mock engines are retained for unit tests and explicit offline debugging. Functional setup and operation should use MLX Qwen3 ASR and Codex postprocessing by default. Before processing real Voice Memos, verify Codex with a trivial non-private prompt and validate Codex postprocessing on synthetic sample audio.
+Mock engines are retained for unit tests and explicit offline debugging. Functional setup and operation should use MLX Qwen3 ASR and Codex postprocessing by default. **Kimi postprocessing** (`--postprocess-engine kimi`) is also available as an alternative to Codex; it requires `KIMI_API_KEY` and the `openai` package (`uv pip install -e '.[kimi]'`). Before processing real Voice Memos, verify the chosen postprocess engine with a trivial non-private prompt and validate postprocessing on synthetic sample audio.
 
 ## Install from GitHub
 
@@ -34,6 +34,8 @@ cd skills/intake-skill
 uv venv .venv
 source .venv/bin/activate
 uv pip install -e '.[dev,qwen-asr]'
+# Optional: for Kimi postprocessing support
+uv pip install -e '.[kimi]'
 python -m pytest -q
 python -m intake_skill --help
 ```
@@ -143,7 +145,7 @@ codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake
 
 If this fails, leave Codex disabled and record the exact failure. If it succeeds, continue with synthetic-sample Codex validation.
 
-Then validate Codex on the synthetic sample:
+Then validate postprocessing on the synthetic sample (use `--engine codex` or `--engine kimi`):
 
 ```bash
 python -m intake_skill postprocess --data-dir "$VALIDATION_DATA" --date "$VALIDATION_DAY" --engine codex
@@ -163,6 +165,13 @@ Inspect the JSON `items` array. Confirm sources are under the Voice Memos direct
 
 ```bash
 python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine codex
+```
+
+Or with Kimi instead of Codex:
+
+```bash
+export KIMI_API_KEY=your-key-here
+python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine kimi
 ```
 
 Use the real Voice Memos path only after the synthetic-sample MLX and Codex validation succeeds.
