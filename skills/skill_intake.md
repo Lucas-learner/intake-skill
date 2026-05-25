@@ -21,21 +21,19 @@ When talking to the operator, keep the cognitive burden low. Prefer phrases like
 
 Intake Skill is Voice Memos only. It reads files that Apple Voice Memos has already synced to the Mac. Do not add microphone recording, non-Voice-Memos sources, speaker recognition, diarization, reference voices, or participant attribution.
 
-Mock engines are retained for unit tests and explicit offline debugging. Functional setup and operation should use MLX Qwen3 ASR and Codex postprocessing by default. **Kimi postprocessing** (`--postprocess-engine kimi`) is also available as an alternative to Codex; it requires `KIMI_API_KEY` and the `openai` package (`uv pip install -e '.[kimi]'`). Before processing real Voice Memos, verify the chosen postprocess engine with a trivial non-private prompt and validate postprocessing on synthetic sample audio.
+Mock engines are retained for unit tests and explicit offline debugging. Functional setup and operation should use MLX Qwen3 ASR and **Kimi postprocessing** (`--postprocess-engine kimi`) by default. Kimi reads credentials automatically from `~/.kimi/credentials/kimi-code.json` (set up by `kimi login`). Codex postprocessing (`--postprocess-engine codex`) is also available as an alternative. Before processing real Voice Memos, verify the chosen postprocess engine with a trivial non-private prompt and validate postprocessing on synthetic sample audio. All postprocessed output is in Chinese (中文).
 
 ## Install from GitHub
 
 Start in the user's current workspace and install this repo as a project-local skill, not as a standard global Codex skill. If `skills/intake-skill` already exists, inspect it rather than cloning over it.
 
 ```bash
-mkdir -p skills
-git clone https://github.com/grapeot/intake-skill.git skills/intake-skill
-cd skills/intake-skill
+mkdir -p projects/tools
+git clone https://github.com/grapeot/intake-skill.git projects/tools/intake-skill
+cd projects/tools/intake-skill
 uv venv .venv
 source .venv/bin/activate
-uv pip install -e '.[dev,qwen-asr]'
-# Optional: for Kimi postprocessing support
-uv pip install -e '.[kimi]'
+uv pip install -e '.[dev,qwen-asr,kimi]'
 python -m pytest -q
 python -m intake_skill --help
 ```
@@ -56,6 +54,7 @@ Interpret the JSON directly:
 - `checks.source_exists: true` means the configured source path exists.
 - `checks.source_is_voice_memos_default: true` means the source is the standard macOS Voice Memos container.
 - `checks.ffmpeg_available: true` is required for `.qta` conversion and reliable `.m4a` sample generation.
+- `checks.kimi_available: true` indicates Kimi CLI is installed (used for API credential location).
 - `checks.codex_available: true` is required only for Codex postprocessing.
 
 The standard Voice Memos source is:
@@ -164,14 +163,18 @@ python -m intake_skill sync --date YYYYMMDD --dry-run
 Inspect the JSON `items` array. Confirm sources are under the Voice Memos directory and destinations are under `data/YYYYMMDD/`. Then run the day:
 
 ```bash
+python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine kimi
+```
+
+Or with Codex instead of Kimi:
+
+```bash
 python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine codex
 ```
 
-Or with Kimi instead of Codex:
-
+Or use the `today` shortcut for today's date:
 ```bash
-export KIMI_API_KEY=your-key-here
-python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine kimi
+python -m intake_skill today
 ```
 
 Use the real Voice Memos path only after the synthetic-sample MLX and Codex validation succeeds.
@@ -225,6 +228,8 @@ Rerun `source .venv/bin/activate`, `uv pip install mlx-qwen3-asr`, and the `pyth
 
 Confirm `data/YYYYMMDD/` contains at least one `.m4a`. Run `python -m intake_skill asr --data-dir DATA --date YYYYMMDD --engine mlx`. Open `transcript_YYYYMMDD.csv`; the header must be exactly `speaker,content`. If the header differs, treat it as a contract failure. If rows are empty, check that audio files exist and the MLX transcribe call returned text.
 
+Note: The ASR engine skips individual audio files if a transcript already exists and is newer than the audio file. To force re-transcription, delete the existing `transcript_YYYYMMDD.csv` first.
+
 ### Codex unavailable
 
 Run `which codex` and the trivial `codex exec --full-auto -c model_reasoning_effort=low "Reply with exactly: intake codex ok"` prompt. If either fails, keep `postprocess --engine codex` disabled. Mock postprocess remains available for local validation.
@@ -232,6 +237,8 @@ Run `which codex` and the trivial `codex exec --full-auto -c model_reasoning_eff
 ### Nightly Run Did Not Run
 
 Check `crontab -l` for the `# intake_skill nightly run` marker. Inspect `logs/intake_cron.log`. Confirm the repo `.venv/bin/python` path still exists, the Mac was awake, and Voice Memos had synced files before midnight. Do not reinstall the nightly run by replacing the whole schedule; rerun `install-cron --dry-run` and compare the marker.
+
+Note: The cron job uses `--postprocess-engine kimi` by default. If Kimi credentials expire, the postprocess step will fail.
 
 ### Output files are missing
 
@@ -243,9 +250,11 @@ Trace the pipeline in order: sync should produce `.m4a` files under `data/YYYYMM
 python -m intake_skill doctor [--source PATH] [--data-dir PATH] [--repo-root PATH]
 python -m intake_skill sync [--source PATH] [--data-dir PATH] [--date YYYYMMDD] [--dry-run]
 python -m intake_skill asr [--data-dir PATH] [--date YYYYMMDD] [--engine mock|mlx] [--mock-text TEXT]
-python -m intake_skill postprocess [--data-dir PATH] [--date YYYYMMDD] [--engine mock|codex]
-python -m intake_skill run-day [--source PATH] [--data-dir PATH] [--date YYYYMMDD] [--asr-engine mock|mlx] [--postprocess-engine mock|codex] [--mock-text TEXT] [--dry-run-sync]
+python -m intake_skill postprocess [--data-dir PATH] [--date YYYYMMDD] [--engine mock|codex|kimi]
+python -m intake_skill run-day [--source PATH] [--data-dir PATH] [--date YYYYMMDD] [--asr-engine mock|mlx] [--postprocess-engine mock|codex|kimi] [--mock-text TEXT] [--dry-run-sync]
+python -m intake_skill today [--asr-engine mock|mlx] [--postprocess-engine mock|codex|kimi]
 python -m intake_skill install-cron [--repo-root PATH] [--dry-run]
+python -m intake_skill dashboard [--host HOST] [--port PORT]
 python -m intake_skill make-sample-audio --output PATH [--seconds N]
 ```
 
@@ -281,4 +290,4 @@ data/YYYYMMDD/daily_YYYYMMDD.html
 data/YYYYMMDD/meetings/*.md
 ```
 
-Existing synced audio destinations are skipped rather than overwritten. Nightly-run schedule backups live under `logs/crontab_backup_*.txt`; nightly-run output goes to `logs/intake_cron.log`.
+Existing synced audio destinations are skipped rather than overwritten. Existing transcripts are skipped if they are newer than their source audio files. Nightly-run schedule backups live under `logs/crontab_backup_*.txt`; nightly-run output goes to `logs/intake_cron.log`.

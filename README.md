@@ -65,8 +65,10 @@ data/YYYYMMDD/
 ## 运行边界
 
 - **MLX Qwen3 ASR**：本地运行，首次需要下载 `Qwen/Qwen3-ASR-1.7B` 模型
-- **Kimi 后处理**：调用 Kimi API（通过 `~/.kimi/credentials/kimi-code.json` 自动认证），无需 Codex CLI
+- **Kimi 后处理**：调用 Kimi Code API（通过 `~/.kimi/credentials/kimi-code.json` 自动认证），无需 Codex CLI
 - **定时运行**：可选，Mac 需保持开机，语音备忘录需保持同步
+- **增量处理**：已转录的音频不会重复处理
+- **中文输出**：后处理默认生成中文报告
 
 ## 本地仪表盘
 
@@ -126,6 +128,40 @@ indry 20260522   # 预览同步
 - Python 3.10+
 - `uv` 包管理器
 - `ffmpeg`（用于 .qta 转换）
+
+## 多设备方案（Mac mini + MacBook）
+
+如果你有常驻的 Mac mini 和日常使用的 MacBook：
+
+### iCloud Drive 同步（推荐）
+
+Mac mini 处理录音，报告通过 iCloud Drive 自动同步到 MacBook：
+
+```bash
+# Mac mini
+mkdir -p ~/Library/Mobile\ Documents/com~apple~CloudDocs/intake-skill/data
+cd ~/projects/tools/intake-skill
+rm -rf data
+ln -s ~/Library/Mobile\ Documents/com~apple~CloudDocs/intake-skill/data data
+```
+
+MacBook 直接在 Finder → iCloud Drive → intake-skill → data 中查看报告。
+
+### Tailscale 远程仪表盘
+
+如果两台设备都安装了 Tailscale：
+
+```bash
+# Mac mini 查看 Tailscale IP
+tailscale ip -4
+
+# 启动仪表盘绑定 Tailscale IP
+cd ~/projects/tools/intake-skill
+source .venv/bin/activate
+python -m intake_skill dashboard --host $(tailscale ip -4) --port 8765
+```
+
+MacBook 浏览器访问 `http://100.x.x.x:8765`。
 
 ## 给 AI 代理的说明
 
