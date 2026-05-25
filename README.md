@@ -1,106 +1,99 @@
-# Intake Skill
+# Intake Skill - 语音备忘录日报工具
 
-Intake Skill turns Apple Voice Memos that have already synced to a Mac into dated local intake artifacts: normalized audio files, transcript CSVs, daily Markdown and HTML reports, and meeting-note Markdown files.
+Intake Skill 将已同步到 Mac 的 Apple 语音备忘录，自动整理成按日期归档的本地文件：标准化音频、转录文本 CSV、每日 Markdown/HTML 报告、以及会议记录。
 
-This repo is meant to be installed by an AI agent as a project-local skill, not as a standard global Codex skill. Give the agent this URL from the workspace where you want the skill to live:
+本工具由 AI 代理安装为项目级技能，而非全局 Codex 技能。在你的工作目录中向代理提供以下 URL：
 
 ```text
 https://github.com/grapeot/intake-skill
 ```
 
-Ask it: "Install this repo for me: https://github.com/grapeot/intake-skill". The agent should clone the repo under the current folder, normally at `skills/intake-skill`, install Python dependencies, install `mlx-qwen3-asr`, tell the user that the first speech-model download may take a little while, transcribe synthetic sample audio, run sync, ASR, and Codex postprocessing end to end, show where the sample outputs were written, and then explain the optional nightly automatic run in plain language.
+然后告诉代理："帮我安装这个仓库"。代理会克隆仓库、安装 Python 依赖、安装 `mlx-qwen3-asr`，并验证端到端流程。
 
-The detailed installer and operating guide lives in [`skills/skill_intake.md`](skills/skill_intake.md). Human readers normally do not need to run commands from this README; the skill file contains the exact playbook an AI agent should follow.
+详细的安装和操作指南见 [`skills/skill_intake.md`](skills/skill_intake.md)。普通用户通常不需要直接运行 README 中的命令；skill 文件包含了 AI 代理应遵循的完整操作手册。
 
-## What It Does
+## 功能说明
 
-Intake Skill is intentionally narrow. It reads Apple Voice Memos files from the standard macOS Voice Memos container, copies or converts them into `data/YYYYMMDD/`, transcribes them into `transcript_YYYYMMDD.csv`, and generates daily artifacts from that transcript.
+Intake Skill  intentionally 功能单一。它只读取 macOS 语音备忘录标准目录中的文件，复制或转换到 `data/YYYYMMDD/`，转录为 `transcript_YYYYMMDD.csv`，并基于转录生成日报。
 
-It does not record microphone audio. It does not add non-Voice-Memos intake. It does not perform speaker recognition, diarization, reference voice matching, or participant attribution.
+它**不**录制麦克风音频，**不**处理非语音备忘录来源，**不**进行说话人识别、声纹匹配或参与者归属。
 
-The runtime pipeline is:
+运行流程：
 
 ```text
-Apple Voice Memos synced to this Mac
-  -> sync local audio into data/YYYYMMDD/
-  -> transcribe with MLX Qwen3 ASR
-  -> generate daily Markdown, HTML, and meeting notes with Codex
+Apple 语音备忘录同步到 Mac
+  -> 同步本地音频到 data/YYYYMMDD/
+  -> MLX Qwen3 ASR 语音转文字
+  -> Codex/Kimi AI 生成日报
 ```
 
-The main commands are:
+## 主要命令
 
 ```bash
+# 检查环境
 python -m intake_skill doctor
-python -m intake_skill sync --date YYYYMMDD --dry-run
-python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine codex
-python -m intake_skill run-day --date YYYYMMDD --asr-engine mlx --postprocess-engine kimi  # Alternative: use Kimi AI
-python -m intake_skill dashboard
+
+# 预览今天会同步哪些文件
+python -m intake_skill sync --date $(date +%Y%m%d) --dry-run
+
+# 处理今天（同步 + 转录 + 生成日报）
+python -m intake_skill today
+
+# 或手动跑完整流程
+python -m intake_skill run-day --date $(date +%Y%m%d) --asr-engine mlx --postprocess-engine kimi
+
+# 启动本地仪表盘
+python -m intake_skill dash
 ```
 
-Most operators use one of two modes:
+## 使用模式
 
-- manual mode: run `run-day` when they want the latest Voice Memos processed
-- scheduled mode: install cron once, then use the dashboard to monitor status and trigger manual catch-up runs when needed
+- **手动模式**：需要时运行 `today` 或 `run-day` 处理最新录音
+- **定时模式**：安装 cron 后，每晚自动处理当天的录音
 
-Generated files live under:
+## 生成的文件
 
 ```text
 data/YYYYMMDD/
-  YYYYMMDD_HHMM_watch.m4a
-  transcript_YYYYMMDD.csv
-  daily_YYYYMMDD.md
-  daily_YYYYMMDD.html
-  meetings/*.md
+  YYYYMMDD_HHMM_watch.m4a    # 同步的标准化音频
+  transcript_YYYYMMDD.csv     # 转录文本
+  daily_YYYYMMDD.md           # Markdown 日报
+  daily_YYYYMMDD.html         # HTML 日报
+  meetings/*.md               # 会议记录
 ```
 
-## Runtime Boundary
+## 运行边界
 
-MLX Qwen3 ASR is intended to run locally after `mlx-qwen3-asr` and the `Qwen/Qwen3-ASR-1.7B` model are installed. Codex postprocessing is the default AI summarization path for this workflow and uses the operator's configured local Codex CLI. **Kimi postprocessing** is also supported as an alternative — it calls the Kimi API via `KIMI_API_KEY` and does not require Codex CLI. Installer agents should validate postprocessing on synthetic sample audio during setup.
+- **MLX Qwen3 ASR**：本地运行，首次需要下载 `Qwen/Qwen3-ASR-1.7B` 模型
+- **Kimi 后处理**：调用 Kimi API（通过 `~/.kimi/credentials/kimi-code.json` 自动认证），无需 Codex CLI
+- **定时运行**：可选，Mac 需保持开机，语音备忘录需保持同步
 
-The nightly automatic run is optional and should be enabled only after the operator confirms it. If enabled, the Mac must stay awake at the scheduled time, remain plugged in or otherwise powered, and Voice Memos must keep syncing often enough for new recordings to appear locally.
-
-Cron runs with a minimal environment. The managed cron line sets a stable `PATH` that includes common Homebrew locations so tools such as `ffmpeg` and `ffprobe` can be found during scheduled runs.
-
-## Local Dashboard
-
-After installation, operators can start a local browser dashboard:
+## 本地仪表盘
 
 ```bash
-cd skills/intake-skill
+cd /Users/apple/projects/tools/intake-skill
 source .venv/bin/activate
-python -m intake_skill dashboard
+python -m intake_skill dash
 ```
 
-The dashboard binds to `127.0.0.1:8765` by default. It is a local control surface for understanding how the pieces fit together:
+默认绑定 `127.0.0.1:8765`，功能包括：
 
-- cron installation state, configured daily run time, and next scheduled run
-- whether an intake, MLX Qwen3 ASR, or Codex postprocess process is currently running
-- today's Voice Memos sync queue, including copy, convert, and skip actions
-- recent processed days, audio counts, total audio duration, transcript rows and characters, generated report text, and report availability
-- key local paths for source Voice Memos, generated data, and logs
-- cron log tail plus a simple last-run status and last error summary
-- temporary workspace size under `tmp/`
+- cron 安装状态、下次运行时间
+- 当前处理进度（sync/ASR/后处理）
+- 今日同步队列
+- 近期处理天数统计
+- 手动触发 `Generate now`
+- 修改/禁用定时任务
 
-The dashboard also includes local controls:
+**安全提示**：不要将此仪表盘暴露到公网。
 
-- `Generate now`: run today's full `sync -> ASR -> Codex postprocess` pipeline immediately
-- report links: open generated daily HTML reports from the recent-days table
-- `Set schedule`: change the managed daily cron trigger time
-- `Disable cron`: remove the managed Intake Skill cron entry while preserving unrelated crontab lines
-- `Keep Mac awake`: start `caffeinate -i -s`, allowing the display to sleep while preventing system idle sleep
-- `Stop awake mode`: stop the dashboard-managed `caffeinate` process
-- `Clean tmp`: remove temporary files under this repo's `tmp/` directory without deleting `data/`
+## 环境要求
 
-The dashboard is not a cloud service and does not run unless started. Its controls operate on local macOS primitives: `crontab`, `caffeinate`, local files, and the repo's Python CLI. Cron itself is separate from the dashboard; once installed, cron can run the pipeline even if the dashboard and Codex app are closed, provided the Mac is awake.
+- macOS（语音备忘录同步依赖）
+- Python 3.10+
+- `uv` 包管理器
+- `ffmpeg`（用于 .qta 转换）
 
-Dashboard binding guidance:
+## 给 AI 代理的说明
 
-- `127.0.0.1` is the safe default and should be used on work or shared networks.
-- Binding to a trusted home LAN or Tailscale address can be useful when the operator understands that anyone who can reach that address can try to access the dashboard.
-- Do not expose this dashboard to the public internet.
-
-The dashboard uses a per-server CSRF token for state-changing actions and serves generated report HTML with a restrictive Content Security Policy. Those protections reduce accidental cross-site control risk, but they do not turn the dashboard into an internet-facing application.
-
-## For AI Agents
-
-Use [`skills/skill_intake.md`](skills/skill_intake.md) as the source of truth for installation, verification, operation, debugging, command reference, and artifact contracts.
+安装、验证、操作、调试的完整指南见 [`skills/skill_intake.md`](skills/skill_intake.md)。
