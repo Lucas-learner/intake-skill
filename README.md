@@ -80,13 +80,18 @@ tail -50 logs/intake_cron.log
 tail -f logs/intake_cron.log
 ```
 
-### 修改或取消
+### 取消定时任务
 
 ```bash
-# 手动编辑 crontab 修改时间
-crontab -e
+# 查看当前有哪些定时任务
+crontab -l
 
-# 找到并删除 intake_skill 那一行即可取消
+# 取消所有任务（会清空，谨慎使用）
+crontab -r
+
+# 或者手动编辑，只删除 intake_skill 那一行
+crontab -e
+# 在编辑器里找到带 # intake_skill nightly run 的那行，删除后保存
 ```
 
 ### 多设备方案
