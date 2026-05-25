@@ -157,29 +157,56 @@ def parse_kimi_response(response_text: str) -> dict[str, str]:
     return files
 
 
+def _resolve_kimi_api_key() -> str:
+    """Resolve Kimi API key from credentials file or environment variable."""
+    credentials_path = Path.home() / ".kimi" / "credentials" / "kimi-code.json"
+    if credentials_path.exists():
+        try:
+            data = json.loads(credentials_path.read_text(encoding="utf-8"))
+            access_token = data.get("access_token")
+            if access_token:
+                return str(access_token)
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+    api_key = os.environ.get("KIMI_API_KEY")
+    if api_key:
+        return api_key
+    raise RuntimeError(
+        "Kimi API key not found. Either set KIMI_API_KEY environment variable "
+        "or login with 'kimi login' to create ~/.kimi/credentials/kimi-code.json"
+    )
+
+
 def run_kimi_postprocess(data_dir: Path, day: str) -> dict[str, object]:
-    from openai import OpenAI
+    import httpx
 
     directory = data_dir / day
     directory.mkdir(parents=True, exist_ok=True)
 
-    api_key = os.environ.get("KIMI_API_KEY")
-    if not api_key:
-        raise RuntimeError("KIMI_API_KEY environment variable is required for kimi postprocess engine")
-
-    client = OpenAI(api_key=api_key, base_url="https://api.moonshot.cn/v1")
+    api_key = _resolve_kimi_api_key()
     prompt = build_kimi_prompt(data_dir, day)
 
-    response = client.chat.completions.create(
-        model="kimi-latest",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that generates structured intake reports from voice memo transcripts."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.3,
+    response = httpx.post(
+        "https://api.kimi.com/coding/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "KimiCLI/1.44.0",
+        },
+        json={
+            "model": "kimi-latest",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant that generates structured intake reports from voice memo transcripts."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.3,
+        },
+        timeout=300,
     )
-
-    response_text = response.choices[0].message.content or ""
+    response.raise_for_status()
+    response_json = response.json()
+    message = response_json["choices"][0]["message"]
+    response_text = message.get("content", "") or message.get("reasoning_content", "") or ""
     files = parse_kimi_response(response_text)
 
     outputs: list[str] = []
